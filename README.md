@@ -1,4 +1,5 @@
 # SSAFY 임베디드 프로젝트 환경 구축 패키지
+
 ## Raspberry Pi 5 기반 STM32 진단 Agent & On-Device SLM 테스트베드
 
 본 저장소는 SSAFY 임베디드 특화 프로젝트를 위한 **Raspberry Pi 5 - STM32 진단 Agent 및 원격 개발 벤치**의 환경 설정 스크립트, 문서, 벤치마크 결과를 독립적으로 관리하는 전용 작업 공간입니다.
@@ -64,6 +65,7 @@ RPi 5에서 언제든지 아래 명령어를 실행하여 설치 상태를 종�
 ```
 
 **정상 출력 예시:**
+
 ```text
 ▶ 1. CLI 바이너리 확인:
   [✔] llama-cli : /usr/local/bin/llama-cli
@@ -86,23 +88,29 @@ RPi 5에서 언제든지 아래 명령어를 실행하여 설치 상태를 종�
 ## 4. 임베디드 진단 툴체인 기본 명령어 요약
 
 ### 1) ST-LINK 프로브 및 연결된 STM32 칩 감지
+
 ```bash
 st-info --probe
 ```
 
 ### 2) OpenOCD 경고 없는 레지스터 덤프 및 정지
+
 - **STM32F1 계열 (Nucleo-F103RB 등, Cortex-M3)**:
+
   ```bash
   openocd -f interface/stlink.cfg -c "transport select swd" -f target/stm32f1x.cfg \
           -c "init; reset halt; reg; resume; exit"
   ```
+
 - **STM32F4 계열 (Nucleo-F401, F411, F446 등, Cortex-M4)**:
+
   ```bash
   openocd -f interface/stlink.cfg -c "transport select swd" -f target/stm32f4x.cfg \
           -c "init; reset halt; reg; resume; exit"
   ```
 
 ### 3) Python SWD PoC 스크립트 실행
+
 ```bash
 python3 ~/ssafy_embedded_pjt_setup/scripts/poc_swd_test.py
 ```
@@ -112,10 +120,13 @@ python3 ~/ssafy_embedded_pjt_setup/scripts/poc_swd_test.py
 ## 5. 온디바이스 SLM 실행 요약
 
 - **터미널 대화**:
+
   ```bash
   ~/ssafy_embedded_pjt_setup/scripts/run_qwen3b_chat.sh
   ```
+
 - **OpenAI 호환 API 서버 (포트 8080)**:
+
   ```bash
   ~/ssafy_embedded_pjt_setup/scripts/run_qwen3b_server.sh
   # API Endpoint: http://<RPi_IP>:8080/v1/chat/completions
@@ -128,40 +139,41 @@ python3 ~/ssafy_embedded_pjt_setup/scripts/poc_swd_test.py
 Tailscale VPN 망에 접속하면 라즈베리파이 기기마다 고유한 **`100.x.y.z`** 형태의 가상 사설 IP가 각각 다르게 부여됩니다. 다른 팀원의 라즈베리파이나 신규 보드에 접속할 때는 아래 절차를 참고하세요.
 
 ### 1) 라즈베리파이에서 자신의 Tailscale IP 확인
+
 라즈베리파이 로컬 터미널(모니터 직결 또는 USB Gadget 연결 상태)에서 다음 명령어로 IP를 확인합니다:
+
 ```bash
 tailscale ip -4
 # 출력 예시: 100.92.169.70 또는 100.115.x.y
 ```
-*(참고: 웹 브라우저의 [Tailscale 관리자 콘솔](https://login.tailscale.com/admin/machines)에서도 연결된 장비 이름과 IP를 한눈에 볼 수 있습니다.)*
+
+_(참고: 웹 브라우저의 [Tailscale 관리자 콘솔](https://login.tailscale.com/admin/machines)에서도 연결된 장비 이름과 IP를 한눈에 볼 수 있습니다.)_
 
 ### 2) 호스트 PC(Windows)에서 접속 방법
 
 호스트 PC에도 Tailscale 클라이언트가 실행 중이어야 동일 가상망으로 연결됩니다.
 
 #### 방법 A: PowerShell 원격 스크립트 활용 (`utils/ssh_rpi.ps1`)
+
 - **현재 세션에서 IP 변경 후 접속**:
+
   ```powershell
   $env:RPI_HOST = "100.x.y.z"
   .\utils\ssh_rpi.ps1
   ```
+
 - **원격 명령 1회성 즉시 실행**:
+
   ```powershell
   $env:RPI_HOST = "100.x.y.z"; .\utils\ssh_rpi.ps1 "st-info --probe"
   ```
+
 - **기본 IP 영구 변경**:
   `utils/ssh_rpi.ps1` 파일을 열어 상단의 `$DEFAULT_HOST = "100.x.y.z"` 값을 본인 보드의 IP로 수정합니다.
 
 #### 방법 B: 일반 SSH 터미널 직접 접속
+
 ```bash
 ssh pi@100.x.y.z
 # 기본 패스워드: 1
 ```
-
-### 3) Tailscale 미사용 시 대체 접속 방법
-- **USB-C 케이블 직결 (USB Ethernet Gadget)**:
-  - PC와 RPi 5를 USB-C 데이터 케이블로 직결 시 기본 고정 IP: `10.12.194.1`
-  - 접속: `$env:RPI_HOST = "10.12.194.1"; .\utils\ssh_rpi.ps1`
-- **같은 Wi-Fi / 사설 공유기 접속 시**:
-  - RPi에서 `hostname -I`로 확인한 사설 IP (예: `192.168.0.x`) 또는 `ssh pi@raspberrypi.local`로 접속 가능합니다.
-
