@@ -25,12 +25,12 @@ ssafy_embedded_pjt_setup/
 │
 ├── docs/                          # 상세 기술 문서 및 벤치마크 리포트
 │   ├── 차량용_CAN_통신_도입_및_아키텍처_설계.md  # [설계 v3.0] NUCLEO-G474RE(DCU/FOC) & CAN FD / Classic CAN 도메인 아키텍처 ⭐
+│   ├── 설계_장비별기능_및_AgentTool인터페이스.md # [설계 v3.0] G474RE DCU 기능 명세 및 CAN FD 진단 Agent Tool 인터페이스 ⭐
 │   ├── tailscale_초간단_설치_가이드.md       # [네트워크] Tailscale 미설정 팀원을 위한 초간단 3분 설치 가이드 ⭐
 │   ├── stm32_개발_환경_구축_가이드.md          # [가이드] PC 측 STM32 개발 환경 구축 (CubeIDE / VS Code / 드라이버) ⭐
 │   ├── stm32_디버깅_작업_가이드.md          # [가이드] STM32 실전 디버깅 작업 및 CLI 명령어 매뉴얼 ⭐
 │   ├── setup_guide_rpi5_diagnosis_agent.md  # [매뉴얼] RPi5 신규 보드 환경 구축 가이드
 │   ├── 아키텍처_v2_RPi-STM32_진단Agent.md   # [설계] RPi5-STM32 진단 Agent 시스템 아키텍처
-│   ├── 설계_장비별기능_및_AgentTool인터페이스.md # [설계] 셀별 장비 기능 및 Agent Tool 인터페이스
 │   ├── qwen2.5_3b_rpi5.md                   # [벤치마크] Qwen 2.5 3B 실측 성능 보고서 (추천 1순위)
 │   ├── qwen3_4b_rpi5.md                     # [벤치마크] Qwen 3 4B 실측 성능 보고서
 │   ├── gemma3_1b_rpi5.md                    # [참고] Gemma 3 1B 실측 보고서
