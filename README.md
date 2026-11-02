@@ -24,6 +24,7 @@ ssafy_embedded_pjt_setup/
 │   └── prompt_robot_qwen3.txt     # 진단 Agent용 시스템 프롬프트 (Qwen 3용)
 │
 ├── docs/                          # 상세 기술 문서 및 벤치마크 리포트
+│   ├── stm32_디버깅_작업_가이드.md          # [가이드] STM32 실전 디버깅 작업 및 CLI 명령어 매뉴얼 ⭐
 │   ├── setup_guide_rpi5_diagnosis_agent.md  # [매뉴얼] RPi5 신규 보드 환경 구축 가이드
 │   ├── 아키텍처_v2_RPi-STM32_진단Agent.md   # [설계] RPi5-STM32 진단 Agent 시스템 아키텍처
 │   ├── 설계_장비별기능_및_AgentTool인터페이스.md # [설계] 셀별 장비 기능 및 Agent Tool 인터페이스
