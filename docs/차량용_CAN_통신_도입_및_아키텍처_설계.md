@@ -1,277 +1,197 @@
-# [아키텍처/설계] 차량용 CAN 통신 도입 및 분산 ECU 진단 설계서
+# [아키텍처/설계 v3.0] 차세대 차량용 이종(Heterogeneous) CAN FD / CAN 도메인 아키텍처 및 분산 ECU 진단 설계서
 
-본 문서는 SSAFY 임베디드 프로젝트에서 **Raspberry Pi 5(차량 게이트웨이 & AI 진단기)**와 **4대의 STM32 Nucleo 보드(분산 도메인 ECU)** 간의 통신을 차량 표준인 **CAN 2.0B(Controller Area Network, 500 kbps)** 기반으로 전환하기 위한 **하드웨어 결선, 레지스터/CubeMX 설정, 펌웨어 HAL 코드, 리눅스 SocketCAN 및 진단 에이전트 연동 설계서**입니다.
+> **버전**: v3.0 (최신 개정)  
+> **핵심 업그레이드**: **NUCLEO-G474RE (Cortex-M4F @ 170MHz)** 도입을 통한 **"차량 도메인 컨트롤러(DCU) & FOC 트랙션 모터 인버터"** 구축 및 **CAN FD ↔ Classic CAN 하이브리드 네트워크** 구성.
 
 ---
 
-## 1. 차량 도메인 시스템 아키텍처 개요
+## 1. 차세대 차량 도메인 시스템 아키텍처 개요
 
-기존 단순 USB/UART 통신 구조를 실제 자동차 전장 아키텍처(Automotive E/E Architecture)로 개편합니다:
+본 설계는 테슬라 및 현대차 E-GMP 플랫폼 등 최신 전기차(EV)에 적용되는 **중앙 도메인 제어기(DCU / VCU) 및 고속 CAN FD 백본 네트워크** 구조를 그대로 모사합니다:
 
 ```mermaid
 flowchart TB
-    subgraph Gateway["🖥️ 차량 중앙 게이트웨이 & 진단기 (Raspberry Pi 5)"]
-        TCU["차량 텔레매틱스 / 게이트웨이 모듈"]
+    subgraph Gateway["🖥️ 차량 중앙 게이트웨이 & AI 진단 워크스테이션 (Raspberry Pi 5)"]
+        TCU["차량 텔레매틱스 / 진단 호스트"]
         SOCKETCAN["Linux SocketCAN (can0 인터페이스)"]
-        AI_AGENT["On-Device SLM 진단 Agent (Qwen 2.5 3B)<br/>- CAN DBC 디코더 & UDS ISO 14229 테스터"]
-        SWD_DEBUG["SWD 하드웨어 디버거 (OpenOCD)<br/>- 4x USB 백채널 (크래시 레지스터 덤프용)"]
+        AI_AGENT["On-Device SLM 진단 Agent (Qwen 2.5 3B)<br/>- CAN FD / DBC 디코더 & UDS ISO 14229 테스터"]
+        SWD_DEBUG["SWD 하드웨어 디버거 (OpenOCD)<br/>- 4x USB 백채널 (실리콘 레지스터 덤프용)"]
     end
 
-    subgraph CAN_BUS["🚗 차량 공용 고속 CAN 버스 (CAN_H / CAN_L 트위스트 페어, 500 kbps)"]
+    subgraph CAN_FD_BACKBONE["⚡ 초고속 CAN FD 백본 버스 (2~5 Mbps, 최대 64 Byte 페이로드)"]
         direction LR
-        TERM1["120Ω 종단"] --- BUS_LINE["CAN_H / CAN_L Differential Bus"] --- TERM2["120Ω 종단"]
+        TERM_FD1["120Ω"] --- FD_LINE["CAN FD Differential Bus"] --- TERM_FD2["120Ω"]
     end
 
-    subgraph ECUs["4개 도메인 분산 차량 ECU (NUCLEO-F103RB)"]
-        ECU1["[Cell 1: 파워트레인 ECU]<br/>- DC/스텝 모터 구동<br/>- RPM, 속도, 토크 계측<br/>(CAN ID: 0x100)"]
+    subgraph MAIN_DCU["🏎️ [Main ECU] NUCLEO-G474RE (도메인 컨트롤러 & FOC 인버터)"]
+        G4_CORE["Cortex-M4F @ 170 MHz<br/>- CORDIC HW 가속 FOC 모터 벡터 제어<br/>- Dual-Bank Flash 512KB (무중단 OTA)<br/>- FMAC 기반 1024-pt FFT 진동 분석"]
+        FDCAN_CH1["FDCAN1 (백본 업링크)"]
+        FDCAN_CH2["FDCAN2 (필드버스 다운링크 게이트웨이)"]
+    end
+
+    subgraph CAN_SUB_BUS["🚗 차량 필드버스 CAN 버스 (Classic CAN 2.0B, 500 kbps, 8 Byte)"]
+        direction LR
+        TERM_C1["120Ω"] --- CAN_LINE["Classic CAN Bus"] --- TERM_C2["120Ω"]
+    end
+
+    subgraph SUB_ECUS["하위 도메인 분산 차량 ECU (NUCLEO-F103RB x3)"]
         ECU2["[Cell 2: 섀시/BMS ECU]<br/>- MPU6050 진동, BMP280 온도<br/>- 배터리 셀 전압, 전류 감시<br/>(CAN ID: 0x200)"]
         ECU3["[Cell 3: 바디 BCM ECU]<br/>- RFID 스마트키 인증<br/>- 도어록, 비상등, 키패드<br/>(CAN ID: 0x300)"]
         ECU4["[Cell 4: 클러스터 ECU]<br/>- 전자식 계기판 (FND/OLED)<br/>- 주행거리계, 경고등 점등<br/>(CAN ID: 0x400)"]
     end
 
-    TCU <--> SOCKETCAN
-    SOCKETCAN <===> CAN_BUS
-    ECU1 <===> CAN_BUS
-    ECU2 <===> CAN_BUS
-    ECU3 <===> CAN_BUS
-    ECU4 <===> CAN_BUS
+    SOCKETCAN <===>|"CAN FD (5 Mbps)"| CAN_FD_BACKBONE
+    CAN_FD_BACKBONE <===> FDCAN_CH1
+    G4_CORE <--> FDCAN_CH1
+    G4_CORE <--> FDCAN_CH2
+    FDCAN_CH2 <===>|"Classic CAN (500 kbps)"| CAN_SUB_BUS
 
-    SWD_DEBUG -.->|"USB/SWD (L2 비상 복구)"| ECU1
-    SWD_DEBUG -.->|"USB/SWD (L2 비상 복구)"| ECU2
-    SWD_DEBUG -.->|"USB/SWD (L2 비상 복구)"| ECU3
-    SWD_DEBUG -.->|"USB/SWD (L2 비상 복구)"| ECU4
+    CAN_SUB_BUS <===> ECU2
+    CAN_SUB_BUS <===> ECU3
+    CAN_SUB_BUS <===> ECU4
+
+    SWD_DEBUG -.->|"SWD (target/stm32g4x.cfg)"| MAIN_DCU
+    SWD_DEBUG -.->|"SWD (target/stm32f1x.cfg)"| ECU2
+    SWD_DEBUG -.->|"SWD (target/stm32f1x.cfg)"| ECU3
+    SWD_DEBUG -.->|"SWD (target/stm32f1x.cfg)"| ECU4
 ```
 
-> **하이브리드 진단(Dual-Channel) 전략**:
-> 1. **1차 런타임 진단 (CAN Bus)**: 주행 중 실시간 센서 스트림 및 **DTC(Diagnostic Trouble Code, 차량 고장코드)**, UDS 질의를 통해 고장을 실시간 탐지.
-> 2. **2차 심층 하드웨어 진단 (SWD Debug)**: MCU가 HardFault에 빠지거나 CAN 통신이 Bus-Off 상태로 죽었을 때, RPi 5가 SWD 경로로 CPU 코어 레지스터와 스택 메모리를 강제 덤프.
+---
+
+## 2. 하드웨어 스펙 및 역할 분담 (이종 멀티 ECU)
+
+| 제어기 명칭 | 하드웨어 보드 | 코어 / 클록 | 통신 프로토콜 | 담당 차량 도메인 및 특화 기능 |
+|:---|:---|:---|:---|:---|
+| **중앙 진단기** | **Raspberry Pi 5** | Quad A76 @ 2.4GHz | **CAN FD / USB** | • 전체 차량 E/E 모니터링 및 SocketCAN<br/>• On-Device SLM (Qwen 2.5 3B) 고장 진단<br/>• UDS 테스터 및 SWD 크래시 분석기 |
+| **Main DCU / VCU** ⭐ | **NUCLEO-G474RE** | **Cortex-M4F @ 170MHz** (512KB Flash, 128KB RAM) | **FDCAN1 (FD)<br/>FDCAN2 (Classic)** | • **FOC 벡터 모터 제어** (CORDIC 가속기)<br/>• **CAN FD ↔ Classic CAN 지능형 게이트웨이**<br/>• **Dual-Bank 무중단 OTA 및 자동 롤백**<br/>• **온-보드 진동 FFT 실시간 예지보전** |
+| **Cell 2: BMS ECU** | NUCLEO-F103RB | Cortex-M3 @ 72MHz | Classic CAN (500k) | • 배터리 셀 팩 전압, 충방전 전류 계측<br/>• 온도/진동 임계치 초과 시 DTC 발행 |
+| **Cell 3: 바디 BCM** | NUCLEO-F103RB | Cortex-M3 @ 72MHz | Classic CAN (500k) | • RFID 스마트키 인증 (Immobilizer)<br/>• 도어 개폐, 비상등, 릴레이 안전 제어 |
+| **Cell 4: 클러스터** | NUCLEO-F103RB | Cortex-M3 @ 72MHz | Classic CAN (500k) | • 차량 계기판(FND/OLED) 속도/RPM 표출<br/>• DTC 체크 엔진 경고등 점등 |
 
 ---
 
-## 2. 하드웨어 결선 가이드
+## 3. 하드웨어 결선 가이드 (CAN FD & Classic CAN)
 
-### 2-1. 필요 하드웨어 부품 목록
-1. **STM32용 CAN 트랜시버**: **SN65HVD230 모듈 (3.3V 구동)** 4개 (보드당 1개)
-   * *주의: 아두이노용 5V TJA1050/MCP2551은 전압 불일치 문제가 있으므로 반드시 3.3V 전용인 SN65HVD230(또는 VP230) 사용*
-2. **RPi 5용 CAN 어댑터**: **USB-to-CAN 어댑터 (Canable / candleLight 펌웨어 기반)** 1개
-   * *또는 SPI 기반 MCP2515 모듈도 가능하나, 플러그앤플레이가 지원되는 USB Canable을 적극 권장*
-3. **배선재**: 120Ω 저항 2개 (트랜시버 기판에 점퍼로 내장된 경우 저항 불필요), 꼬임선(Twisted Pair)
+### 3-1. 필요 하드웨어 모듈
+1. **STM32G474RE용 CAN FD 트랜시버**: **SN65HVD230** (3.3V) 또는 CAN FD 전용 **TCAN334 / TJA1051T/3** 2개 (FDCAN1, FDCAN2용)
+2. **STM32F103RB용 CAN 트랜시버**: **SN65HVD230** 3개 (각 F103 보드용)
+3. **RPi 5용 CAN FD 어댑터**: **USB-to-CAN FD 어댑터 (Canable 2.0 / candleLight FD)** 또는 MCP2518FD 모듈
+4. **120Ω 종단 저항**: 백본 버스 양단 2개 + 서브 버스 양단 2개
 
-### 2-2. STM32 ↔ SN65HVD230 트랜시버 핀맵
-NUCLEO-F103RB 보드의 bxCAN 기본 핀맵과 트랜시버를 1:1로 연결합니다:
-
-| SN65HVD230 핀 | NUCLEO-F103RB 핀 | 설명 |
-|:---|:---|:---|
-| **3V3 (VCC)** | **3V3** | 3.3V 전원 공급 |
-| **GND** | **GND** | 공통 접지 (RPi와도 공통 GND 권장) |
-| **CTX (TXD)** | **PA12** (`CAN_TX`) | MCU CAN 송신 로직 핀 |
-| **CRX (RXD)** | **PA11** (`CAN_RX`) | MCU CAN 수신 로직 핀 |
-| **CAN_H** | 공용 CAN_H 버스 라인 | 차동 High 신호 (트위스트 페어) |
-| **CAN_L** | 공용 CAN_L 버스 라인 | 차동 Low 신호 (트위스트 페어) |
-
-> [!IMPORTANT]
-> **종단 저항(Termination Resistor 120Ω) 설정**:
-> CAN 버스 양쪽 끝에 위치한 2개 노드의 모듈(예: RPi 5와 가장 먼 Cell 4)에만 120Ω 종단 저항 점퍼를 꽂고, 중간에 물리는 보드들은 종단 저항 점퍼를 제거해야 신호 왜곡이 발생하지 않습니다.
+### 3-2. NUCLEO-G474RE 핀맵 배선
+NUCLEO-G474RE는 3채널의 FDCAN을 지원합니다:
+* **FDCAN1 (RPi 5 백본 업링크)**:
+  * `PA12`: `FDCAN1_TX` ➡️ 트랜시버 1 TX
+  * `PA11`: `FDCAN1_RX` ➡️ 트랜시버 1 RX
+* **FDCAN2 (하위 F103 셀 다운링크)**:
+  * `PB6` 또는 `PB13`: `FDCAN2_TX` ➡️ 트랜시버 2 TX
+  * `PB5` 또는 `PB12`: `FDCAN2_RX` ➡️ 트랜시버 2 RX
 
 ---
 
-## 3. STM32CubeMX bxCAN 설정 (500 kbps 차량 표준)
+## 4. NUCLEO-G474RE 4대 특화 기능 상세 구현
 
-STM32F103의 APB1 클록은 보통 **36 MHz**입니다. 500 kbps 통신 속도를 만들기 위한 정밀 타이밍 설정값입니다:
-
-### 3-1. 클록 및 타이밍 계산식
-$$\text{Bit Rate} = \frac{f_{\text{APB1}}}{\text{Prescaler} \times (1 + \text{BS1} + \text{BS2})}$$
-* $f_{\text{APB1}} = 36\,\text{MHz}$
-* $\text{Prescaler} = 4$
-* $1\,\text{TQ (Sync)} + 12\,\text{TQ (BS1)} + 5\,\text{TQ (BS2)} = 18\,\text{TQ}$
-* $\text{Bit Rate} = \frac{36{,}000{,}000}{4 \times 18} = 500{,}000\,\text{bps (500 kbps)}$
-* **샘플 포인트**: $\frac{1 + 12}{18} = 72.2\%$ (차량 표준 70\~80% 범위 충족)
-
-### 3-2. CubeMX GUI 파라미터 입력
-1. `Connectivity` ➡️ `CAN` 활성화
-2. **Parameter Settings**:
-   * **Prescaler**: `4`
-   * **Time Quanta in Bit Segment 1 (BS1)**: `12 Times`
-   * **Time Quanta in Bit Segment 2 (BS2)**: `5 Times`
-   * **ReSynchronization Jump Width (SJW)**: `1 Time`
-   * **Operating Mode**: `Normal`
-   * **Automatic Bus-Off Management**: `Enable` (버스 오류 시 자동 복구)
-   * **Automatic Wake-Up**: `Enable`
-   * **Automatic Retransmission**: `Enable` (수신 응답 없을 시 재전송)
-3. **NVIC Settings**:
-   * `USB low priority or CAN RX0 interrupts` ➡️ **Enabled (체크)**
-
----
-
-## 4. STM32 HAL C 펌웨어 구현 코드
-
-### 4-1. 필수 수신 필터(Filter Bank) 설정
-> **주의**: STM32 bxCAN은 필터를 등록하지 않으면 **수신된 모든 프레임을 하드웨어에서 폐기**합니다. 모든 CAN ID를 통과시키는 기본 필터를 반드시 활성화해야 합니다.
-
-`Core/Src/can.c` 또는 `main.c`에 추가:
+### 4-1. CORDIC 하드웨어 가속기 기반 모터 FOC (Field-Oriented Control)
+STM32G474의 내장 CORDIC 코프로세서는 삼각함수 연산을 하드웨어 파이프라인으로 처리합니다:
 ```c
-/* USER CODE BEGIN 2 */
-CAN_FilterTypeDef sFilterConfig;
+// CORDIC을 이용한 로터 각도(Theta)의 Sin/Cos 초고속 계산 (단 4클록)
+LL_CORDIC_Config(CORDIC, LL_CORDIC_FUNCTION_SINE, 
+                         LL_CORDIC_PRECISION_6CYCLES, 
+                         LL_CORDIC_SCALE_0, 
+                         LL_CORDIC_NBWRITE_1, 
+                         LL_CORDIC_NBREAD_2, 
+                         LL_CORDIC_INSIZE_32BITS, 
+                         LL_CORDIC_OUTSIZE_32BITS);
 
-sFilterConfig.FilterBank = 0;
-sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
-sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-sFilterConfig.FilterIdHigh = 0x0000;
-sFilterConfig.FilterIdLow = 0x0000;
-sFilterConfig.FilterMaskIdHigh = 0x0000;
-sFilterConfig.FilterMaskIdLow = 0x0000;
-sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
-sFilterConfig.FilterActivation = ENABLE;
-sFilterConfig.SlaveStartFilterBank = 14;
-
-if (HAL_CAN_ConfigFilter(&hcan, &sFilterConfig) != HAL_OK) {
-    Error_Handler();
-}
-
-// CAN 시작 및 수신 인터럽트 활성화
-if (HAL_CAN_Start(&hcan) != HAL_OK) {
-    Error_Handler();
-}
-if (HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK) {
-    Error_Handler();
-}
-/* USER CODE END 2 */
+LL_CORDIC_WriteData(CORDIC, (uint32_t)theta_q31);
+sin_val = (int32_t)LL_CORDIC_ReadData(CORDIC);
+cos_val = (int32_t)LL_CORDIC_ReadData(CORDIC);
+// 파크 역변환(Inverse Park Transform)을 거쳐 3상 PWM 생성
 ```
 
-### 4-2. CAN 프레임 송신 함수 예시 (Cell 1: 파워트레인 RPM 송신)
+### 4-2. Dual-Bank Flash를 활용한 "무중단 펌웨어 OTA & 안전 롤백"
+512 KB Flash가 **Bank 1 (0x08000000, 256KB)**과 **Bank 2 (0x08040000, 256KB)**로 완벽 분리되어 있습니다:
 ```c
-void Send_ECU1_Status(uint16_t rpm, uint8_t speed_kmh, int8_t motor_temp) {
-    CAN_TxHeaderTypeDef txHeader;
-    uint8_t txData[8] = {0};
-    uint32_t txMailbox;
-
-    txHeader.StdId = 0x100;          // Cell 1 파워트레인 CAN ID
-    txHeader.ExtId = 0x01;
-    txHeader.RTR = CAN_RTR_DATA;
-    txHeader.IDE = CAN_ID_STD;
-    txHeader.DLC = 8;
-    txHeader.TransmitGlobalTime = DISABLE;
-
-    // 데이터 패킹 (빅엔디언 / 차량 표준)
-    txData[0] = (uint8_t)(rpm >> 8);
-    txData[1] = (uint8_t)(rpm & 0xFF);
-    txData[2] = speed_kmh;
-    txData[3] = (uint8_t)motor_temp;
-    txData[4] = 0x00; // 정상 상태 (0: OK, 1: DTC Warning)
-
-    HAL_CAN_AddTxMessage(&hcan, &txHeader, txData, &txMailbox);
+// Bank 1 실행 중 Bank 2에 새 펌웨어 플래싱 후 원클릭 뱅크 스왑
+void Execute_DualBank_Swap(void) {
+    FLASH_OBProgramInitTypeDef obInit;
+    HAL_FLASH_Unlock();
+    HAL_FLASH_OB_Unlock();
+    
+    HAL_FLASHEx_OBGetConfig(&obInit);
+    // BFB2 옵션 비트를 토글하여 부팅 뱅크 변경
+    obInit.OptionType = OPTIONBYTE_USER;
+    obInit.USERType = OB_USER_BFB2;
+    obInit.USERConfig = (obInit.USERConfig & OB_BFB2_ENABLE) ? OB_BFB2_DISABLE : OB_BFB2_ENABLE;
+    
+    HAL_FLASHEx_OBProgram(&obInit);
+    HAL_FLASH_OB_Launch(); // 시스템 리셋 후 새 뱅크로 즉시 무중단 부팅
 }
 ```
 
-### 4-3. CAN 프레임 인터럽트 수신 콜백
+### 4-3. FMAC / CMSIS-DSP 기반 1024-point 실시간 진동 FFT 분석
+진동 센서 데이터를 170MHz 속도로 MCU 내에서 직접 주파수 영역으로 변환하여 베어링/기어 결함을 로컬에서 즉시 감지합니다:
 ```c
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
-    CAN_RxHeaderTypeDef rxHeader;
-    uint8_t rxData[8];
+#include "arm_math.h"
 
-    if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) == HAL_OK) {
-        // 긴급 제어 명령 수신 (0x010: 중앙 진단기 긴급 정지 명령)
-        if (rxHeader.StdId == 0x010 && rxData[0] == 0xFF) {
-            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET); // 모터 즉시 차단
-        }
-    }
+#define FFT_LENGTH 1024
+arm_rfft_fast_instance_f32 S;
+float32_t vReal[FFT_LENGTH];
+float32_t vOutput[FFT_LENGTH];
+
+void Analyze_Vibration_FFT(void) {
+    arm_rfft_fast_init_f32(&S, FFT_LENGTH);
+    arm_rfft_fast_f32(&S, vReal, vOutput, 0);
+    // 특정 이상 고조파(120Hz 피크) 감지 시 CAN FD로 즉시 DTC 프레임 송출
 }
 ```
 
 ---
 
-## 5. Raspberry Pi 5 Linux SocketCAN 환경 구축
+## 5. 차량 통신 매트릭스 (CAN FD 64-Byte + Classic CAN 8-Byte)
 
-RPi 5에 USB Canable 어댑터를 꽂으면 커널이 즉시 `can0`를 생성합니다.
-
-### 5-1. 필수 패키지 설치
-```bash
-sudo apt-get update
-sudo apt-get install -y can-utils
-sudo pip3 install --break-system-packages python-can cantools
-```
-
-### 5-2. `can0` 인터페이스 활성화 스크립트
-```bash
-# 500 kbps 속도로 인터페이스 활성화
-sudo ip link set can0 type can bitrate 500000 restart-ms 100
-sudo ip link set can0 up
-
-# 인터페이스 상태 확인
-ip -details link show can0
-```
-
-### 5-3. 버스 모니터링 CLI
-```bash
-# 버스 트래픽 실시간 스니핑
-candump -tz can0
-
-# 테스트 패킷 수동 송신 (ID: 0x100, 8바이트)
-cansend can0 100#0BB8321900000000
-```
-
----
-
-## 6. 차량 CAN ID 매트릭스 및 DTC 고장 규약
-
-| CAN ID | 송신 노드 | 메시지명 | 주기 | 주요 신호 (Signals) |
+### 5-1. CAN FD 백본 버스 (RPi 5 ↔ NUCLEO-G474RE, 5 Mbps)
+| CAN ID | 송신 노드 | 메시지명 | 길이 | 주요 신호 명세 |
 |:---|:---|:---|:---:|:---|
-| **`0x010`** | **RPi 5 (Gateway)** | `CMD_EMERGENCY` | 이벤트 | 비상 정지(E-Stop), 파라미터 리셋 명령 |
-| **`0x100`** | **Cell 1 (파워트레인)** | `STATUS_POWERTRAIN` | 20 ms | RPM(0\~6000), 속도(0\~150km/h), 모터온도, 결함코드 |
-| **`0x200`** | **Cell 2 (섀시/BMS)** | `STATUS_CHASSIS_BMS`| 50 ms | 배터리 전압(mV), 잔량(SOC %), 진동 센서 G값 |
-| **`0x300`** | **Cell 3 (바디 BCM)** | `STATUS_BODY_KEY` | 100 ms | 스마트키 인증상태, 도어 락/언락, 비상등 플래그 |
-| **`0x400`** | **Cell 4 (클러스터)** | `STATUS_CLUSTER` | 100 ms | 총 주행거리(km), 계기판 경고등 점등 상태 |
-| **`0x7DF`** | **RPi 5 (진단기)** | `OBD2_BROADCAST_REQ`| 이벤트 | 표준 OBD-II / UDS 서비스 요청 |
-| **`0x7E8`** | **Cell 1\~4 (응답)** | `UDS_DIAG_RESP` | 이벤트 | Freeze Frame 덤프, DTC 고장코드 상세 응답 |
+| **`0x050`** | **G474RE** | `DCU_FAST_TELEMETRY` | **64 B** | 3상 모터 전류(U/V/W), 로터 각도, 토크, CORDIC 상태, FFT 상위 피크 4개, 전압 |
+| **`0x060`** | **G474RE** | `GATEWAY_AGGREGATED` | **64 B** | 하위 F103 셀(BMS, BCM, Cluster)에서 올라온 센서/상태 데이터를 1개 프레임으로 압축 중계 |
+| **`0x070`** | **RPi 5** | `OTA_FIRMWARE_BLOCK` | **64 B** | Dual-Bank Bank 2용 신규 펌웨어 바이너리 청크 스트리밍 |
+| **`0x7DF`** | **RPi 5** | `UDS_DIAG_REQUEST` | **8 B** | ISO 14229 표준 통합 진단 질의 |
 
-### DTC 고장코드 예시
-* `0xE101`: 모터 과전류 / 드라이버 발열 경고
-* `0xE202`: BMS 배터리 저전압 (Low Voltage Cutoff)
-* `0xE203`: I2C 센서 통신 두절
-* `0xE301`: RFID 스마트키 인증 실패 (Immobilizer Lock)
+### 5-2. Classic CAN 필드버스 (G474RE ↔ NUCLEO-F103RB x3, 500 kbps)
+| CAN ID | 송신 노드 | 메시지명 | 길이 | 주요 신호 명세 |
+|:---|:---|:---|:---:|:---|
+| **`0x200`** | Cell 2 (BMS) | `BMS_STATUS` | 8 B | 배터리 총전압(mV), 방전전류(mA), SOC(%), 셀 최고온도 |
+| **`0x300`** | Cell 3 (BCM) | `BODY_STATUS` | 8 B | 스마트키 인증 상태, 도어락 플래그, 비상등 점멸 |
+| **`0x400`** | Cell 4 (클러스터)| `CLUSTER_FEEDBACK` | 8 B | 현재 표시 중인 속도값, 경고등 래치 상태 |
 
 ---
 
-## 7. Python AI 진단 에이전트 연동 (`tool_can.py` 프로토타입)
+## 6. OpenOCD 진단 벤치 멀티 타깃 제어 가이드
 
-진단 Agent가 CAN 버스를 실시간 모니터링하다가 DTC 고장코드가 발생하면 자연어로 즉시 분석하는 파이썬 도구입니다:
+RPi 5 진단 벤치에서 코어 아키텍처가 다른 두 칩(Cortex-M4 G474 vs Cortex-M3 F103)을 완벽히 분리 제어합니다:
 
-```python
-import can
-import time
+### 1) NUCLEO-G474RE (Cortex-M4, ST-LINK V3E)
+```bash
+openocd -f interface/stlink.cfg -c "adapter serial <G474_시리얼>" \
+        -c "transport select swd" -f target/stm32g4x.cfg \
+        -c "init; reset halt; reg; resume; exit"
+```
 
-def monitor_can_bus_and_diagnose():
-    bus = can.interface.Bus(channel='can0', bustype='socketcan')
-    print("[INFO] 차량 CAN 버스 모니터링 시작 (500 kbps)...")
-
-    for msg in bus:
-        # Cell 1 (0x100) 파워트레인 데이터 수신
-        if msg.arbitration_id == 0x100:
-            rpm = (msg.data[0] << 8) | msg.data[1]
-            temp = msg.data[3]
-            fault_flag = msg.data[4]
-
-            if fault_flag != 0:
-                print(f"🚨 [DTC 경고 포착] Cell 1 이상 감지! RPM: {rpm}, 온도: {temp}°C")
-                # AI 진단 에이전트로 이벤트 전달 및 리포트 요청 트리거
-                return {
-                    "ecu": "Cell 1 Powertrain",
-                    "can_id": hex(msg.arbitration_id),
-                    "error_code": f"DTC_0x{fault_flag:02X}",
-                    "telemetry": {"rpm": rpm, "temp": temp}
-                }
-
-if __name__ == "__main__":
-    monitor_can_bus_and_diagnose()
+### 2) NUCLEO-F103RB (Cortex-M3, ST-LINK V2-1)
+```bash
+openocd -f interface/stlink.cfg -c "adapter serial <F103_시리얼>" \
+        -c "transport select swd" -f target/stm32f1x.cfg \
+        -c "init; reset halt; reg; resume; exit"
 ```
 
 ---
 
-## 8. 기대 효과 및 포트폴리오 차별화 포인트
+## 7. 차별화 및 최종 기대 효과
 
-1. **실제 차량 네트워크 구조(E/E Architecture) 완벽 재현**:
-   * 단순 학부 수준의 UART 통신을 탈피하여, 현대차/모비스/보쉬 등 전장 기업의 표준인 **CAN 버스 + 분산 ECU** 토폴로지를 직접 설계하고 실물 구현.
-2. **UDS(ISO 14229) 기반 고장코드(DTC) 시스템 구축**:
-   * 차량 고장 시 경고등 점등 및 Freeze Frame 데이터를 로깅하는 실제 차량 진단 프로토콜 연계.
-3. **CAN + SWD 하이브리드 진단 기술 특화**:
-   * 버스 통신 레벨(CAN)과 실리콘 코어 레벨(SWD)을 결합하여, **"CAN 버스 통신이 끊기더라도 SWD로 들어가 CPU 레지스터를 털어내어 근본 원인을 밝혀내는 세계 유일의 온디바이스 AI 차량 진단 벤치"**로 압도적인 프로젝트 포트폴리오 완성.
+1. **글로벌 전장 표준 아키텍처(DCU + CAN FD) 완성**:
+   * 단순 소형 장비 제어를 넘어, **CAN FD 백본 + 중앙 도메인 제어기(DCU) + 하위 CAN 필드버스**라는 최신 현대차/테슬라 전장망을 그대로 실증.
+2. **하드웨어 가속기(CORDIC/FMAC) 기반 고효율 FOC/FFT 구현**:
+   * SW 라이브러리가 아닌 실리콘 내장 가속기를 활용하여 모터 벡터 제어 및 진동 FFT를 극초저지연으로 수행.
+3. **무중단 Dual-Bank OTA 및 AI 자율 롤백**:
+   * 주행 중 무중단 펌웨어 교체와, 오류 발생 시 SLM(Qwen 2.5 3B)과 연계한 SWD 하드웨어 레벨 자동 롤백 시스템 구축.
