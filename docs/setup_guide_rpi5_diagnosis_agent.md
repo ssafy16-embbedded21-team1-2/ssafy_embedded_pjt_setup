@@ -176,3 +176,51 @@ Found 1 stlink programmers
   sudo udevadm control --reload-rules && sudo udevadm trigger
   ```
   명령 후 터미널 세션을 닫고 다시 로그인(`exit`)해야 새 그룹 권한이 적용됩니다.
+
+---
+
+## 7. 네트워크 연결 및 기기별 Tailscale IP 가이드
+
+Tailscale을 사용하면 별도의 포트포워딩이나 공유기 설정 없이 전 세계 어디서든 안전하게 RPi5에 접속할 수 있습니다. 단, **각 라즈베리파이마다 고유한 `100.x.y.z` 가상 사설 IP가 각각 다르게 부여**됩니다.
+
+### 1) RPi5에 Tailscale 설치 및 로그인 (신규 보드인 경우)
+```bash
+# Tailscale 간편 설치
+curl -fsSL https://tailscale.com/install.sh | sh
+
+# Tailscale 시작 및 계정 인증 (콘솔에 출력되는 웹 링크를 브라우저에서 열어 로그인)
+sudo tailscale up
+
+# 부팅 시 자동 실행 활성화
+sudo systemctl enable --now tailscaled
+```
+
+### 2) 내 라즈베리파이의 고유 Tailscale IP 확인
+```bash
+tailscale ip -4
+# 예: 100.92.169.70 (기기마다 숫자가 다릅니다)
+```
+
+### 3) 호스트 PC(개발자 PC)에서 접속하기
+호스트 PC에도 Tailscale이 켜져 있어야 합니다.
+
+- **PowerShell 유틸리티(`utils/ssh_rpi.ps1`) 활용**:
+  - 임시 지정 접속:
+    ```powershell
+    $env:RPI_HOST = "100.x.y.z"
+    .\utils\ssh_rpi.ps1
+    ```
+  - 기본 IP로 고정: `utils/ssh_rpi.ps1` 상단의 `$DEFAULT_HOST`를 해당 RPi의 IP로 수정
+- **표준 SSH 접속**:
+  ```bash
+  ssh pi@100.x.y.z
+  ```
+
+### 4) Tailscale 미사용 / 오프라인 환경 대체 접속법
+- **USB-C 케이블 직결 (USB Gadget 이더넷)**: PC와 RPi를 USB-C 케이블로 직접 연결했을 때의 고정 IP는 `10.12.194.1`입니다.
+  ```powershell
+  $env:RPI_HOST = "10.12.194.1"
+  .\utils\ssh_rpi.ps1
+  ```
+- **로컬 Wi-Fi 공유기 접속**: 같은 공유기에 접속된 경우 `hostname -I`로 확인한 사설 IP(예: `192.168.0.x`)나 mDNS 주소(`raspberrypi.local`)로 접속 가능합니다.
+
