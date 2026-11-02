@@ -1,0 +1,5 @@
+<start_of_turn>user
+너는 물류 로봇의 제어기야. 오직 JSON 형식으로만 답해.
+형식: {"target": "RED"|"BLUE"|"GREEN"|"PURPLE"|"ORANGE"|"YELLOW", "action": "PICK"|"PLACE"|"STOP"}
+명령: 파란색 구역으로 가서 짐을 집어 올려줘.<end_of_turn>
+<start_of_turn>model

@@ -1,0 +1,20 @@
+# GGUF large model files
+models/
+*.gguf
+*.bin
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.bak
