@@ -24,6 +24,7 @@ ssafy_embedded_pjt_setup/
 │   └── prompt_robot_qwen3.txt     # 진단 Agent용 시스템 프롬프트 (Qwen 3용)
 │
 ├── docs/                          # 상세 기술 문서 및 벤치마크 리포트
+│   ├── tailscale_초간단_설치_가이드.md       # [네트워크] Tailscale 미설정 팀원을 위한 초간단 3분 설치 가이드 ⭐
 │   ├── stm32_개발_환경_구축_가이드.md          # [가이드] PC 측 STM32 개발 환경 구축 (CubeIDE / VS Code / 드라이버) ⭐
 │   ├── stm32_디버깅_작업_가이드.md          # [가이드] STM32 실전 디버깅 작업 및 CLI 명령어 매뉴얼 ⭐
 │   ├── setup_guide_rpi5_diagnosis_agent.md  # [매뉴얼] RPi5 신규 보드 환경 구축 가이드
@@ -138,6 +139,9 @@ python3 ~/ssafy_embedded_pjt_setup/scripts/poc_swd_test.py
 ---
 
 ## 6. 네트워크 연결 및 기기별 Tailscale IP 설정 안내
+
+> [!TIP]
+> **아직 RPi 5에 Tailscale을 설치하지 않은 팀원**은 단계별 쉬운 설치 매뉴얼인 **[`docs/tailscale_초간단_설치_가이드.md`](docs/tailscale_초간단_설치_가이드.md)**를 먼저 확인해 주세요! (USB-C 케이블 직결을 통한 초기 설정부터 로그인까지 3분 완성)
 
 > [!WARNING]
 > **⚠️ Tailscale IP는 기기마다 완전히 다릅니다! 본인의 IP를 꼭 확인 후 입력하세요.**

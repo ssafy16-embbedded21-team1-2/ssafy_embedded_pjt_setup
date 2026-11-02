@@ -181,6 +181,9 @@ Found 1 stlink programmers
 
 ## 7. 네트워크 연결 및 기기별 Tailscale IP 가이드
 
+> [!TIP]
+> **아직 RPi 5에 Tailscale을 설정하지 않은 팀원**은 초기 USB 연결부터 계정 인증까지 쉽게 설명된 **[`tailscale_초간단_설치_가이드.md`](tailscale_초간단_설치_가이드.md)**를 참고하세요.
+
 > [!WARNING]
 > **⚠️ Tailscale IP는 기기마다 완전히 다릅니다! 본인의 IP를 꼭 확인 후 입력하세요.**
 > * 본 문서와 유틸리티 스크립트에 등장하는 `100.x.y.z` 또는 `<본인의_RPi_IP>`는 **단순 예시**입니다.
