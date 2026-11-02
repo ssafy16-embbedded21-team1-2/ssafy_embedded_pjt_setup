@@ -24,6 +24,7 @@ ssafy_embedded_pjt_setup/
 │   └── prompt_robot_qwen3.txt     # 진단 Agent용 시스템 프롬프트 (Qwen 3용)
 │
 ├── docs/                          # 상세 기술 문서 및 벤치마크 리포트
+│   ├── 차량용_CAN_통신_도입_및_아키텍처_설계.md  # [설계] 실차 CAN 2.0B 네트워크 도입 및 분산 ECU 진단 설계서 ⭐
 │   ├── tailscale_초간단_설치_가이드.md       # [네트워크] Tailscale 미설정 팀원을 위한 초간단 3분 설치 가이드 ⭐
 │   ├── stm32_개발_환경_구축_가이드.md          # [가이드] PC 측 STM32 개발 환경 구축 (CubeIDE / VS Code / 드라이버) ⭐
 │   ├── stm32_디버깅_작업_가이드.md          # [가이드] STM32 실전 디버깅 작업 및 CLI 명령어 매뉴얼 ⭐
