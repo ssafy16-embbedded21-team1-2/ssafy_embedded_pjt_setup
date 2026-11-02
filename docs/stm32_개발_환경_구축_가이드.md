@@ -146,19 +146,22 @@ int fputc(int ch, FILE *f)
 ### 1) 빌드 바이너리 RPi 5로 초고속 전송
 Windows PowerShell에서 빌드 결과물(`.bin` 또는 `.elf`)을 RPi 5로 전송:
 ```powershell
-# utils/ssh_rpi.ps1에 정의된 호스트로 바이너리 전송
-scp -o StrictHostKeyChecking=no build/firmware.bin pi@100.92.169.70:~/firmware.bin
+# utils/scp_to_rpi.ps1 유틸리티 활용 (본인 RPi IP로 자동 전송)
+.\utils\scp_to_rpi.ps1 -Source build/firmware.bin -Destination ~/firmware.bin
 
 # RPi 5에서 st-flash로 즉시 플래싱 실행
 .\utils\ssh_rpi.ps1 "st-flash --reset write ~/firmware.bin 0x08000000"
 ```
 
 ### 2) PC의 IDE에서 RPi 5 원격 GDB 서버 연결
+> [!NOTE]
+> 아래 IP는 본인의 라즈베리파이 터미널에서 `tailscale ip -4`를 실행해 확인한 **본인 기기의 고유 IP**를 입력해야 합니다.
+
 1. **RPi 5에서 GDB 서버 대기**:
    ```bash
    openocd -f interface/stlink.cfg -c "transport select swd" -f target/stm32f1x.cfg
    # 포트 3333 대기
    ```
 2. **PC의 CubeIDE / VS Code에서 원격 연결**:
-   - Debug Configuration ➡️ GDB 설정 ➡️ `Connect to remote GDB server` 체크 ➡️ IP: `100.92.169.70`, Port: `3333` 지정.
+   - Debug Configuration ➡️ GDB 설정 ➡️ `Connect to remote GDB server` 체크 ➡️ IP: `<본인의_RPi_Tailscale_IP>`, Port: `3333` 지정.
    - 내 PC 화면에서 RPi5에 꽂힌 실제 STM32 보드의 브레이크포인트와 변수를 실시간 디버깅할 수 있습니다.

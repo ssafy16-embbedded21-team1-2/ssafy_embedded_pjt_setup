@@ -35,7 +35,8 @@ ssafy_embedded_pjt_setup/
 │   └── gemma3_1b_jetson_vs_rpi5.md          # [참고] Jetson Nano vs RPi 5 비교 보고서
 │
 └── utils/                         # PC(Windows) 측 보조 유틸리티
-    └── ssh_rpi.ps1                # Tailscale(100.92.169.70) 및 USB(10.12.194.1) 원격 SSH 접속기
+    ├── ssh_rpi.ps1                # 기기별 Tailscale IP(100.x.y.z) 또는 USB(10.12.194.1) 원격 SSH 접속기
+    └── scp_to_rpi.ps1             # 펌웨어/파일 RPi5 원격 전송기 (SCP)
 ```
 
 ---
@@ -138,15 +139,17 @@ python3 ~/ssafy_embedded_pjt_setup/scripts/poc_swd_test.py
 
 ## 6. 네트워크 연결 및 기기별 Tailscale IP 설정 안내
 
-Tailscale VPN 망에 접속하면 라즈베리파이 기기마다 고유한 **`100.x.y.z`** 형태의 가상 사설 IP가 각각 다르게 부여됩니다. 다른 팀원의 라즈베리파이나 신규 보드에 접속할 때는 아래 절차를 참고하세요.
+> [!WARNING]
+> **⚠️ Tailscale IP는 기기마다 완전히 다릅니다! 본인의 IP를 꼭 확인 후 입력하세요.**
+> * 본 문서와 스크립트에 등장하는 `100.x.y.z`는 **단순 예시**입니다.
+> * 팀원별로 지급된 라즈베리파이나 개별 보드마다 서로 다른 고유 IP가 부여되므로, **반드시 본인이 직접 사용 중인 라즈베리파이에서 `tailscale ip -4`를 실행하여 확인한 본인 기기 IP**를 사용해야 합니다.
+> * 다른 사람의 IP를 그대로 사용할 경우 타인의 라즈베리파이에 오접속되거나 타인의 하드웨어를 제어하게 될 수 있습니다.
 
 ### 1) 라즈베리파이에서 자신의 Tailscale IP 확인
-
-라즈베리파이 로컬 터미널(모니터 직결 또는 USB Gadget 연결 상태)에서 다음 명령어로 IP를 확인합니다:
-
+라즈베리파이 로컬 터미널(모니터 직결 또는 USB Gadget 연결 상태)에서 다음 명령어로 본인의 IP를 확인합니다:
 ```bash
 tailscale ip -4
-# 출력 예시: 100.92.169.70 또는 100.115.x.y
+# 기기마다 고유한 100.x.y.z IP가 출력됩니다. (예: 100.115.20.30 등)
 ```
 
 _(참고: 웹 브라우저의 [Tailscale 관리자 콘솔](https://login.tailscale.com/admin/machines)에서도 연결된 장비 이름과 IP를 한눈에 볼 수 있습니다.)_
