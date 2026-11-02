@@ -11,21 +11,26 @@ Tailscale을 설정해 두면 공유기 포트포워딩이나 복잡한 네트�
 Tailscale을 설치하려면 먼저 라즈베리파이 터미널에 접속하여 명령어를 입력할 수 있어야 합니다. 순정 라즈베리파이 OS는 USB 가젯(직결) 모드가 기본 활성화되어 있지 않으므로, 아래 3가지 방법 중 가능한 방식을 선택하세요:
 
 ### 방법 A: 모니터(Micro HDMI) + USB 키보드 직결 (가장 확실함 ⭐)
-* 라즈베리파이에 Micro-HDMI 모니터와 USB 키보드를 직접 꽂고 전원을 켭니다.
-* 바탕화면이 뜨면 상단 터미널 아이콘(또는 단축키 `Ctrl + Alt + T`)을 열어 곧바로 명령어를 입력합니다.
+
+- 라즈베리파이에 Micro-HDMI 모니터와 USB 키보드를 직접 꽂고 전원을 켭니다.
+- 바탕화면이 뜨면 상단 터미널 아이콘(또는 단축키 `Ctrl + Alt + T`)을 열어 곧바로 명령어를 입력합니다.
 
 ### 방법 B: 같은 Wi-Fi 또는 유선 공유기(LAN) 연결 후 접속 (Headless 추천)
-* 라즈베리파이를 공유기 랜선에 꽂거나 Wi-Fi에 연결합니다.
-  *(참고: Raspberry Pi Imager로 OS를 구울 때 사전에 Wi-Fi와 SSH 설정을 입력해 두었다면 부팅 시 자동으로 Wi-Fi에 연결됩니다.)*
-* 동일한 네트워크(공유기)에 연결된 PC의 PowerShell을 열고 호스트 이름으로 접속합니다:
+
+- 라즈베리파이를 공유기 랜선에 꽂거나 Wi-Fi에 연결합니다.
+  _(참고: Raspberry Pi Imager로 OS를 구울 때 사전에 Wi-Fi와 SSH 설정을 입력해 두었다면 부팅 시 자동으로 Wi-Fi에 연결됩니다.)_
+- 동일한 네트워크(공유기)에 연결된 PC의 PowerShell을 열고 호스트 이름으로 접속합니다:
+
   ```powershell
   ssh pi@raspberrypi.local
   # 패스워드: 1 (또는 Imager에서 본인이 설정한 비밀번호)
   ```
 
 ### 방법 C: USB-C 케이블 직결 (사전 설정된 키트 전용)
-* **주의**: 이 방식은 `config.txt`와 네트워크 설정에 **USB Gadget 이더넷(`dwc2`, `g_ether`)이 사전에 구성된 교육용 기기에서만 작동**합니다.
-* 사전 설정된 기기의 경우 USB-C 케이블로 PC와 직결 후 고정 IP로 접속 가능합니다:
+
+- **주의**: 이 방식은 `config.txt`와 네트워크 설정에 **USB Gadget 이더넷(`dwc2`, `g_ether`)이 사전에 구성된 교육용 기기에서만 작동**합니다.
+- 사전 설정된 기기의 경우 USB-C 케이블로 PC와 직결 후 고정 IP로 접속 가능합니다:
+
   ```powershell
   ssh pi@10.12.194.1
   ```
@@ -37,35 +42,44 @@ Tailscale을 설치하려면 먼저 라즈베리파이 터미널에 접속하여
 RPi 5 터미널에서 다음 3개 명령어를 순서대로 실행합니다:
 
 ### 1) Tailscale 원클릭 설치 스크립트 실행
+
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
 ```
 
 ### 2) Tailscale 시작 및 계정 인증
+
 ```bash
 sudo tailscale up
 ```
-* 명령어를 입력하면 터미널에 인증 URL이 출력됩니다:
+
+- 명령어를 입력하면 터미널에 인증 URL이 출력됩니다:
+
   ```text
   To authenticate, visit:
           https://login.tailscale.com/a/123456789abc
   ```
-* 위 URL을 마우스로 복사하여 **PC 또는 스마트폰 웹 브라우저** 주소창에 붙여넣습니다.
-* **Google, GitHub, Microsoft** 계정 중 원하는 계정으로 1초 만에 로그인합니다.
-* 인증이 완료되면 RPi 터미널에 **`Success.`** 메시지가 뜨며 연결이 완료됩니다.
+
+- 위 URL을 마우스로 복사하여 **PC 또는 스마트폰 웹 브라우저** 주소창에 붙여넣습니다.
+- **Google, GitHub, Microsoft** 계정 중 원하는 계정으로 1초 만에 로그인합니다.
+- 인증이 완료되면 RPi 터미널에 **`Success.`** 메시지가 뜨며 연결이 완료됩니다.
 
 ### 3) 내 RPi의 고유 IP 확인 (메모 필수!)
+
 ```bash
 tailscale ip -4
 # 출력 예시: 100.115.24.89 (기기마다 숫자가 완전히 다릅니다)
 ```
+
 > [!IMPORTANT]
 > 화면에 출력된 **`100.x.y.z`** 주소가 본인 RPi의 고유 주소입니다. 이 주소를 메모해 두세요!
 
 ### 4) 부팅 시 자동 실행 등록
+
 ```bash
 sudo systemctl enable --now tailscaled
 ```
+
 이제 라즈베리파이를 재부팅해도 전원만 켜지면 자동으로 Tailscale에 연결됩니다.
 
 ---
@@ -89,12 +103,14 @@ RPi와 통신할 내 개발자 PC에도 Tailscale이 켜져 있어야 합니다.
 이제 PC의 PowerShell을 열고 메모해 둔 본인의 `100.x.y.z` IP로 접속해 봅니다:
 
 ### 1) 일반 SSH 터미널 접속
+
 ```powershell
 ssh pi@100.x.y.z
 # 패스워드: 1
 ```
 
 ### 2) 제공된 유틸리티 스크립트 활용
+
 ```powershell
 # 현재 세션에 본인 IP 지정
 $env:RPI_HOST = "100.x.y.z"
@@ -122,10 +138,12 @@ $env:RPI_HOST = "100.x.y.z"
 ## 자주 묻는 질문 (FAQ)
 
 ### Q1. IP가 기억나지 않아요. 어디서 확인하나요?
-* RPi5 터미널이 열려 있다면: `tailscale ip -4`
-* PC 웹 브라우저에서: [Tailscale Admin Machines 콘솔](https://login.tailscale.com/admin/machines)에 로그인하면 등록된 모든 기기의 이름과 100.x.y.z IP가 실시간으로 표시됩니다.
 
-### Q2. PC에서 `ssh pi@100.x.y.z`를 했는데 연결 시간 초과(Timeout)가 뜹니다.
+- RPi5 터미널이 열려 있다면: `tailscale ip -4`
+- PC 웹 브라우저에서: [Tailscale Admin Machines 콘솔](https://login.tailscale.com/admin/machines)에 로그인하면 등록된 모든 기기의 이름과 100.x.y.z IP가 실시간으로 표시됩니다.
+
+### Q2. PC에서 `ssh pi@100.x.y.z`를 했는데 연결 시간 초과(Timeout)가 뜹니다
+
 1. PC의 Tailscale이 `Connected` 상태인지 트레이 아이콘을 확인하세요.
 2. PC와 RPi 5가 **동일한 계정**으로 로그인되어 있는지 확인하세요.
 3. RPi 5가 인터넷(Wi-Fi 또는 이더넷)에 정상 연결되어 있는지 확인하세요.

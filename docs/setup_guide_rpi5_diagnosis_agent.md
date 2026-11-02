@@ -1,6 +1,7 @@
 # Raspberry Pi 5 진단 Agent 및 온디바이스 SLM 자동 환경 구축 가이드
 
 본 문서는 다른 새로운 **Raspberry Pi 5 (4GB / 8GB)** 환경에서 다음 소프트웨어 스택을 빠르고 간편하게 구축할 수 있도록 제작된 설치 가이드입니다:
+
 1. **llama.cpp**: ARM Cortex-A76 최적화 네이티브 빌드 및 전역 바이너리 설치 (`llama-cli`, `llama-server`)
 2. **온디바이스 SLM 모델**: 추천 1순위 **Qwen 2.5 3B Instruct** (2.0GB) 및 **Qwen 3 4B** (2.4GB)
 3. **임베디드 진단 툴체인**: OpenOCD (SWD 최적화), GDB Multiarch, stlink-tools, addr2line
@@ -40,16 +41,16 @@ chmod +x setup_rpi5_env.sh
 
 필요에 따라 특정 컴포넌트만 선택하여 설치할 수 있습니다:
 
-| 실행 옵션 | 설명 | 소요 시간 |
-|:---|:---|:---:|
-| `./setup_rpi5_env.sh --all` | 시스템 패키지, 임베디드 툴, llama.cpp, Qwen 2.5 3B 모델, 스크립트 배포 및 검증 | 약 5\~8분 |
-| `./setup_rpi5_env.sh --tools` | OpenOCD, GDB-multiarch, stlink-tools, PyOCD, CMSIS-DAP 팩, udev 권한 설정만 설치 | 약 1\~2분 |
-| `./setup_rpi5_env.sh --llama` | llama.cpp 소스 클론, Cortex-A76 멀티코어 최적화 컴파일, `/usr/local/bin` 전역 설치 | 약 3\~4분 |
-| `./setup_rpi5_env.sh --model qwen3b` | **Qwen 2.5 3B Instruct** (`Q4_K_M`, ~2.0GB) 다운로드 (추천 1순위) | 네트워크 속도 의존 |
-| `./setup_rpi5_env.sh --model qwen3_4b` | **Qwen 3 4B** (`Q4_K_M`, ~2.4GB) 다운로드 (심층 추론 모드) | 네트워크 속도 의존 |
-| `./setup_rpi5_env.sh --model all` | 3B 및 4B 모델 2종 모두 다운로드 (~4.4GB) | 네트워크 속도 의존 |
-| `./setup_rpi5_env.sh --scripts` | `~/scripts` 폴더에 대화/서버/SWD 검증 헬퍼 스크립트 배포 | 1초 |
-| `./setup_rpi5_env.sh --verify` | 현재 시스템의 바이너리, 모델, udev 권한, ST-Link USB 인식 상태를 종합 진단 | 2초 |
+| 실행 옵션                              | 설명                                                                               |     소요 시간      |
+| :------------------------------------- | :--------------------------------------------------------------------------------- | :----------------: |
+| `./setup_rpi5_env.sh --all`            | 시스템 패키지, 임베디드 툴, llama.cpp, Qwen 2.5 3B 모델, 스크립트 배포 및 검증     |     약 5\~8분      |
+| `./setup_rpi5_env.sh --tools`          | OpenOCD, GDB-multiarch, stlink-tools, PyOCD, CMSIS-DAP 팩, udev 권한 설정만 설치   |     약 1\~2분      |
+| `./setup_rpi5_env.sh --llama`          | llama.cpp 소스 클론, Cortex-A76 멀티코어 최적화 컴파일, `/usr/local/bin` 전역 설치 |     약 3\~4분      |
+| `./setup_rpi5_env.sh --model qwen3b`   | **Qwen 2.5 3B Instruct** (`Q4_K_M`, ~2.0GB) 다운로드 (추천 1순위)                  | 네트워크 속도 의존 |
+| `./setup_rpi5_env.sh --model qwen3_4b` | **Qwen 3 4B** (`Q4_K_M`, ~2.4GB) 다운로드 (심층 추론 모드)                         | 네트워크 속도 의존 |
+| `./setup_rpi5_env.sh --model all`      | 3B 및 4B 모델 2종 모두 다운로드 (~4.4GB)                                           | 네트워크 속도 의존 |
+| `./setup_rpi5_env.sh --scripts`        | `~/scripts` 폴더에 대화/서버/SWD 검증 헬퍼 스크립트 배포                           |        1초         |
+| `./setup_rpi5_env.sh --verify`         | 현재 시스템의 바이너리, 모델, udev 권한, ST-Link USB 인식 상태를 종합 진단         |        2초         |
 
 ---
 
@@ -58,6 +59,7 @@ chmod +x setup_rpi5_env.sh
 스크립트 대신 각 단계를 수동으로 직접 수행하고자 할 경우의 상세 명령어입니다.
 
 ### 단계 1: 시스템 필수 패키지 및 임베디드 툴체인 설치
+
 ```bash
 sudo apt-get update -y
 sudo apt-get install -y \
@@ -70,6 +72,7 @@ sudo usermod -aG dialout,plugdev $USER
 ```
 
 ### 단계 2: PyOCD 및 STM32 CMSIS-DAP 팩 설치
+
 ```bash
 sudo pip3 install --break-system-packages pyocd pyserial requests fastapi uvicorn
 
@@ -84,6 +87,7 @@ sudo udevadm trigger
 ```
 
 ### 단계 3: llama.cpp 빌드 및 전역 설치
+
 ```bash
 cd ~
 git clone https://github.com/ggerganov/llama.cpp.git
@@ -98,6 +102,7 @@ sudo cmake --install build
 ```
 
 ### 단계 4: 추천 경량 모델 다운로드 (`~/models`)
+
 ```bash
 mkdir -p ~/models
 cd ~/models
@@ -112,16 +117,21 @@ curl -L -C - --progress-bar -o qwen2.5-3b-instruct-q4_k_m.gguf \
 ## 5. 설치 후 정상 동작 검증 방법
 
 ### 1) 통합 환경 자동 진단
+
 ```bash
 ~/scripts/setup_rpi5_env.sh --verify
 ```
+
 정상적인 경우 모든 항목에 `[✔]` 표시가 출력되고, USB에 ST-Link 보드가 연결되어 있으면 인식된 칩 정보가 표시됩니다.
 
 ### 2) ST-LINK 프로브 및 STM32 보드 인식 확인
+
 ```bash
 st-info --probe
 ```
+
 **출력 예시:**
+
 ```text
 Found 1 stlink programmers
   version:    V2J47S34
@@ -133,24 +143,31 @@ Found 1 stlink programmers
 ```
 
 ### 3) OpenOCD 경고 없는 레지스터 덤프 테스트
+
 타깃 MCU의 종류에 따라 스크립트를 구분하여 실행합니다:
 
 - **STM32F1 계열 (예: Nucleo-F103RB, Cortex-M3)**:
+
   ```bash
   openocd -f interface/stlink.cfg -c "transport select swd" -f target/stm32f1x.cfg \
           -c "init; reset halt; reg; resume; exit"
   ```
+
 - **STM32F4 계열 (예: Nucleo-F401RE, Nucleo-F446RE, Cortex-M4)**:
+
   ```bash
   openocd -f interface/stlink.cfg -c "transport select swd" -f target/stm32f4x.cfg \
           -c "init; reset halt; reg; resume; exit"
   ```
 
 ### 4) 온디바이스 SLM 구동 테스트 (터미널 대화)
+
 ```bash
 ~/scripts/run_qwen3b_chat.sh
 ```
+
 또는 백그라운드 API 서버 모드로 실행:
+
 ```bash
 ~/scripts/run_qwen3b_server.sh
 # 포트 8080에서 OpenAI 호환 /v1/chat/completions API 및 Web UI 제공
@@ -161,20 +178,26 @@ Found 1 stlink programmers
 ## 6. 트러블슈팅 (자주 발생하는 문제 및 해결책)
 
 ### Q1. `Warn : DEPRECATED: auto-selecting transport "swd (dapdirect)"` 경고가 뜹니다.
+
 - **해결책**: OpenOCD v0.12 이상에서는 `interface/stlink.cfg` 뒤에 명시적으로 `-c "transport select swd"`를 선언해야 합니다.
 
 ### Q2. `Warn : target was in unknown state when halt was requested` 경고가 뜹니다.
+
 - **해결책**: MCU가 런타임에 자유 실행 중일 때 강제 `halt`하면 발생하는 일반적인 경고입니다. 리셋 신호와 연동하여 멈추는 `init; reset halt;` 명령어를 사용하면 경고 없이 즉각 정지됩니다.
 
 ### Q3. `[stm32f4x.cpu] Cortex-M3 r1p1 processor detected` 메시지가 뜹니다.
+
 - **해결책**: 실제 연결된 보드가 STM32F4가 아니라 **STM32F1 계열(Cortex-M3)**입니다. `target/stm32f4x.cfg` 대신 **`target/stm32f1x.cfg`**를 지정해 주세요.
 
 ### Q4. `st-info --probe` 또는 `openocd` 실행 시 권한 오류(`Permission denied`)가 발생합니다.
+
 - **해결책**:
+
   ```bash
   sudo usermod -aG dialout,plugdev $USER
   sudo udevadm control --reload-rules && sudo udevadm trigger
   ```
+
   명령 후 터미널 세션을 닫고 다시 로그인(`exit`)해야 새 그룹 권한이 적용됩니다.
 
 ---
@@ -186,11 +209,13 @@ Found 1 stlink programmers
 
 > [!WARNING]
 > **⚠️ Tailscale IP는 기기마다 완전히 다릅니다! 본인의 IP를 꼭 확인 후 입력하세요.**
-> * 본 문서와 유틸리티 스크립트에 등장하는 `100.x.y.z` 또는 `<본인의_RPi_IP>`는 **단순 예시**입니다.
-> * 팀원별로 지급된 라즈베리파이나 개별 보드마다 서로 다른 고유 IP가 부여되므로, **반드시 본인이 직접 사용 중인 라즈베리파이에서 `tailscale ip -4`를 실행하여 확인한 본인 기기 IP**를 사용해야 합니다.
-> * 다른 사람의 IP를 그대로 사용할 경우 타인의 라즈베리파이에 오접속되거나 타인의 하드웨어를 제어하게 될 수 있습니다.
+>
+> - 본 문서와 유틸리티 스크립트에 등장하는 `100.x.y.z` 또는 `<본인의_RPi_IP>`는 **단순 예시**입니다.
+> - 팀원별로 지급된 라즈베리파이나 개별 보드마다 서로 다른 고유 IP가 부여되므로, **반드시 본인이 직접 사용 중인 라즈베리파이에서 `tailscale ip -4`를 실행하여 확인한 본인 기기 IP**를 사용해야 합니다.
+> - 다른 사람의 IP를 그대로 사용할 경우 타인의 라즈베리파이에 오접속되거나 타인의 하드웨어를 제어하게 될 수 있습니다.
 
 ### 1) RPi5에 Tailscale 설치 및 로그인 (신규 보드인 경우)
+
 ```bash
 # Tailscale 간편 설치
 curl -fsSL https://tailscale.com/install.sh | sh
@@ -203,36 +228,44 @@ sudo systemctl enable --now tailscaled
 ```
 
 ### 2) 내 라즈베리파이의 고유 Tailscale IP 확인
+
 라즈베리파이 터미널에서 다음 명령어로 본인 기기의 고유 IP를 확인합니다:
+
 ```bash
 tailscale ip -4
 # 기기마다 고유한 100.x.y.z IP가 출력됩니다. (예: 100.115.20.30 등)
 ```
 
 ### 3) 호스트 PC(개발자 PC)에서 접속하기
+
 호스트 PC에도 Tailscale이 켜져 있어야 합니다.
 
 - **PowerShell 유틸리티(`utils/ssh_rpi.ps1`) 활용**:
   - 임시 지정 접속:
+
     ```powershell
     $env:RPI_HOST = "100.x.y.z"
     .\utils\ssh_rpi.ps1
     ```
+
   - 기본 IP로 고정: `utils/ssh_rpi.ps1` 상단의 `$DEFAULT_HOST`를 해당 RPi의 IP로 수정
+
 - **표준 SSH 접속**:
+
   ```bash
   ssh pi@100.x.y.z
   ```
 
 ### 4) Tailscale 미사용 / 오프라인 환경 대체 접속법
+
 - **동일 Wi-Fi / 공유기(LAN) 접속 (표준 권장)**:
   - RPi와 PC가 같은 공유기에 물려 있는 경우 `ssh pi@raspberrypi.local` 또는 `hostname -I`로 확인한 사설 IP(예: `192.168.0.x`)로 접속합니다.
 - **모니터(Micro-HDMI) + 키보드 직결**:
   - 네트워크 없이 직접 화면과 키보드를 연결하여 로컬 콘솔에서 작업합니다.
 - **USB-C 케이블 직결 (사전 설정된 키트 전용)**:
   - `g_ether` USB 가젯 모드가 사전 설정된 교육용 기기인 경우에 한해 `10.12.194.1`로 접속 가능합니다:
+
     ```powershell
     $env:RPI_HOST = "10.12.194.1"
     .\utils\ssh_rpi.ps1
     ```
-
