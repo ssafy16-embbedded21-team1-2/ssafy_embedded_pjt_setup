@@ -181,8 +181,12 @@ _(참고: 웹 브라우저의 [Tailscale 관리자 콘솔](https://login.tailsca
   `utils/ssh_rpi.ps1` 파일을 열어 상단의 `$DEFAULT_HOST = "100.x.y.z"` 값을 본인 보드의 IP로 수정합니다.
 
 #### 방법 B: 일반 SSH 터미널 직접 접속
-
 ```bash
 ssh pi@100.x.y.z
 # 기본 패스워드: 1
 ```
+
+### 3) Tailscale 미사용 / 오프라인 환경 대체 접속 방법
+- **동일 Wi-Fi / 공유기(LAN) 접속 (표준 권장)**: `ssh pi@raspberrypi.local` 또는 `hostname -I`로 확인한 사설 IP (예: `192.168.0.x`)
+- **모니터(Micro HDMI) + USB 키보드 직결**: 직접 화면을 보고 로컬 터미널에서 작업
+- **USB-C 케이블 직결 (`10.12.194.1`)**: `g_ether` USB 가젯 모드가 사전에 구성된 교육용 기기에서만 작동

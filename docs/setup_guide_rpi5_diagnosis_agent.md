@@ -225,10 +225,14 @@ tailscale ip -4
   ```
 
 ### 4) Tailscale 미사용 / 오프라인 환경 대체 접속법
-- **USB-C 케이블 직결 (USB Gadget 이더넷)**: PC와 RPi를 USB-C 케이블로 직접 연결했을 때의 고정 IP는 `10.12.194.1`입니다.
-  ```powershell
-  $env:RPI_HOST = "10.12.194.1"
-  .\utils\ssh_rpi.ps1
-  ```
-- **로컬 Wi-Fi 공유기 접속**: 같은 공유기에 접속된 경우 `hostname -I`로 확인한 사설 IP(예: `192.168.0.x`)나 mDNS 주소(`raspberrypi.local`)로 접속 가능합니다.
+- **동일 Wi-Fi / 공유기(LAN) 접속 (표준 권장)**:
+  - RPi와 PC가 같은 공유기에 물려 있는 경우 `ssh pi@raspberrypi.local` 또는 `hostname -I`로 확인한 사설 IP(예: `192.168.0.x`)로 접속합니다.
+- **모니터(Micro-HDMI) + 키보드 직결**:
+  - 네트워크 없이 직접 화면과 키보드를 연결하여 로컬 콘솔에서 작업합니다.
+- **USB-C 케이블 직결 (사전 설정된 키트 전용)**:
+  - `g_ether` USB 가젯 모드가 사전 설정된 교육용 기기인 경우에 한해 `10.12.194.1`로 접속 가능합니다:
+    ```powershell
+    $env:RPI_HOST = "10.12.194.1"
+    .\utils\ssh_rpi.ps1
+    ```
 
