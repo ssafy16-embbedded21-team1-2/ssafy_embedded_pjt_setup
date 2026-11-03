@@ -4,6 +4,8 @@
 
 본 저장소는 SSAFY 임베디드 특화 프로젝트를 위한 **Raspberry Pi 5 - STM32 진단 Agent 및 원격 개발 벤치**의 환경 설정 스크립트, 문서, 벤치마크 결과를 독립적으로 관리하는 전용 작업 공간입니다.
 
+**STM32 개발을 바로 시작하려면** [STM32 빠른 시작 가이드](docs/STM32_빠른_시작.md)를 참고하세요. Windows 도구 설치, G474RE/F103RB 예제 빌드, VS Code 및 CubeIDE 사용법이 포함되어 있습니다.
+
 ---
 
 ## 1. 폴더 구조 (Directory Structure)

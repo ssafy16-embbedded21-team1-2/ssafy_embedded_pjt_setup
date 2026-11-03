@@ -1,0 +1,73 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "STM32: G474RE - local ST-LINK (flash)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "cwd": "${workspaceFolder}",
+      "executable": "${workspaceFolder}/build/debug/firmware_g474.elf",
+      "configFiles": ["interface/stlink.cfg", "target/stm32g4x.cfg"],
+      "serverpath": "openocd",
+      "gdbPath": "arm-none-eabi-gdb",
+      "windows": {
+        "serverpath": "${workspaceFolder}/.tools/stm32/xpack-openocd-0.12.0-7/bin/openocd.exe",
+        "gdbPath": "${workspaceFolder}/.tools/stm32/xpack-arm-none-eabi-gcc-15.2.1-1.1/bin/arm-none-eabi-gdb.exe"
+      },
+      "preLaunchTask": "STM32: Build",
+      "runToEntryPoint": "main"
+    },
+    {
+      "name": "STM32: F103RB - local ST-LINK (flash)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "cwd": "${workspaceFolder}",
+      "executable": "${workspaceFolder}/build/debug/firmware_f103.elf",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "serverpath": "openocd",
+      "gdbPath": "arm-none-eabi-gdb",
+      "windows": {
+        "serverpath": "${workspaceFolder}/.tools/stm32/xpack-openocd-0.12.0-7/bin/openocd.exe",
+        "gdbPath": "${workspaceFolder}/.tools/stm32/xpack-arm-none-eabi-gcc-15.2.1-1.1/bin/arm-none-eabi-gdb.exe"
+      },
+      "preLaunchTask": "STM32: Build",
+      "runToEntryPoint": "main"
+    },
+    {
+      "name": "STM32: G474RE - remote OpenOCD (attach)",
+      "type": "cortex-debug",
+      "request": "attach",
+      "servertype": "external",
+      "cwd": "${workspaceFolder}",
+      "executable": "${workspaceFolder}/build/debug/firmware_g474.elf",
+      "gdbTarget": "${input:remoteGdbTarget}",
+      "gdbPath": "arm-none-eabi-gdb",
+      "windows": {
+        "gdbPath": "${workspaceFolder}/.tools/stm32/xpack-arm-none-eabi-gcc-15.2.1-1.1/bin/arm-none-eabi-gdb.exe"
+      }
+    },
+    {
+      "name": "STM32: F103RB - remote OpenOCD (attach)",
+      "type": "cortex-debug",
+      "request": "attach",
+      "servertype": "external",
+      "cwd": "${workspaceFolder}",
+      "executable": "${workspaceFolder}/build/debug/firmware_f103.elf",
+      "gdbTarget": "${input:remoteGdbTarget}",
+      "gdbPath": "arm-none-eabi-gdb",
+      "windows": {
+        "gdbPath": "${workspaceFolder}/.tools/stm32/xpack-arm-none-eabi-gcc-15.2.1-1.1/bin/arm-none-eabi-gdb.exe"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "remoteGdbTarget",
+      "type": "promptString",
+      "description": "RPi OpenOCD address and port, e.g. 100.x.y.z:3333",
+      "default": "127.0.0.1:3333"
+    }
+  ]
+}

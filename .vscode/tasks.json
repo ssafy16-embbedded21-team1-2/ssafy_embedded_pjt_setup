@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "STM32: Configure",
+      "type": "process",
+      "command": "cmake",
+      "args": ["--preset", "debug"],
+      "problemMatcher": []
+    },
+    {
+      "label": "STM32: Build",
+      "type": "process",
+      "command": "cmake",
+      "args": ["--build", "--preset", "debug"],
+      "dependsOn": ["STM32: Configure"],
+      "dependsOrder": "sequence",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    }
+  ]
+}

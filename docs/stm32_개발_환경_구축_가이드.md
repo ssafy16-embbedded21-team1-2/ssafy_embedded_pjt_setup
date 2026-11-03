@@ -1,5 +1,7 @@
 # STM32 펌웨어 개발 환경 구축 가이드 (NUCLEO-G474RE & F103RB / CAN·CAN-FD / CubeIDE / VS Code)
 
+> **이 저장소에서 시작할 때는 [STM32 빠른 시작 가이드](STM32_빠른_시작.md)를 우선 사용하세요.** 아래의 예전 CubeIDE·VS Code 설정은 버전과 생성 프로젝트에 따라 달라질 수 있습니다. CubeIDE 2.x의 CubeMX는 별도 설치이며, 저장소 예제의 실제 ELF 경로는 `build/debug/firmware_g474.elf`, `build/debug/firmware_f103.elf`입니다.
+
 본 문서는 SSAFY 임베디드 프로젝트에서 **NUCLEO-G474RE(메인 DCU / VCU)** 및 **NUCLEO-F103RB(분산 ECU)** 펌웨어를 차량 표준인 **CAN 및 CAN FD 통신** 환경에 맞춰 개발, 빌드, 디버깅하기 위한 **PC 측 통합 개발 환경 구축 매뉴얼**입니다.
 
 ---
@@ -10,7 +12,7 @@
 | :---------------- | :--------------------------------------- | :-------------------------------------- |
 | **차량 역할**     | **Main 도메인 제어기 & FOC 모터 인버터** | **BMS, 바디 BCM, 계기판 클러스터**      |
 | **코어 / 클록**   | **ARM Cortex-M4F @ 170 MHz (FPU/DSP)**   | **ARM Cortex-M3 @ 72 MHz**              |
-| **Flash / RAM**   | **512 KB (Dual-Bank) / 128 KB (ECC)**    | **128 KB / 20 KB**                      |
+| **Flash / RAM**   | **512 KB (Dual-Bank 설정 가능) / 128 KB SRAM (96 KB + 32 KB CCM)** | **128 KB / 20 KB** |
 | **통신 규격**     | **FDCAN x 3 (최대 5 Mbps CAN FD, 64B)**  | **bxCAN (최대 1 Mbps Classic CAN, 8B)** |
 | **온보드 디버거** | **ST-LINK V3E** (고속)                   | **ST-LINK V2-1**                        |
 | **OpenOCD 타깃**  | `target/stm32g4x.cfg`                    | `target/stm32f1x.cfg`                   |
@@ -57,18 +59,18 @@ PC에 USB-to-CAN(Canable)을 연결하여 차량 버스 트래픽을 GUI로 볼 
 
 ### 단계 1: 설치
 
-[STM32CubeIDE 공식 사이트](https://www.st.com/en/development-tools/stm32cubeide.html)에서 Windows 버전 설치 (컴파일러, GDB, CubeMX 일체형).
+[STM32CubeIDE 공식 사이트](https://www.st.com/en/development-tools/stm32cubeide.html)에서 설치합니다. **CubeIDE 2.x는 CubeMX를 별도 설치**해야 합니다. 저장소의 CMake 예제를 가져오는 단계는 [빠른 시작 가이드](STM32_빠른_시작.md)를 따르세요.
 
 ### 단계 2: 보드별 새 프로젝트 생성
 
-`File` ➡️ `New` ➡️ `STM32 Project` ➡️ **Board Selector**에서 본인 보드 검색:
+CubeMX의 **Board Selector**에서 본인 보드를 선택합니다. CubeIDE 2.x에서는 CubeMX로 생성 후 프로젝트를 가져옵니다.
 
 1. **NUCLEO-G474RE 선택 시**:
-   - 기본 클록 170 MHz 자동 구성, CORDIC 및 FDCAN 라이브러리 포함
+   - CORDIC 및 FDCAN을 사용할 수 있다. 시스템 클록과 주변장치는 프로젝트에서 직접 구성한다.
 2. **NUCLEO-F103RB 선택 시**:
-   - 기본 클록 72 MHz 자동 구성, bxCAN 라이브러리 포함
+   - bxCAN을 사용할 수 있다. 시스템 클록과 주변장치는 프로젝트에서 직접 구성한다.
 
-- _"Initialize all peripherals with their default Mode?"_ 팝업에서 **`Yes`** 선택.
+- 생성한 설정과 HAL 드라이버 포함 여부를 확인한다. 보드를 선택한 것만으로 170 MHz 또는 72 MHz 설정이 보장되지는 않는다.
 
 ---
 
@@ -86,41 +88,9 @@ PC에 USB-to-CAN(Canable)을 연결하여 차량 버스 트래픽을 GUI로 볼 
 3. **Cortex-Debug** (`marus25.cortex-debug`)
 4. **STM32 VS Code Extension** (`stmicroelectronics.stm32-vscode-extension`)
 
-### 단계 3: VS Code `launch.json` 디버깅 설정 (G474 & F103 듀얼 구성)
+### 단계 3: 저장소에 제공된 디버깅 설정 사용
 
-`.vscode/launch.json`:
-
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Debug NUCLEO-G474RE (Cortex-M4)",
-      "cwd": "${workspaceFolder}",
-      "executable": "${workspaceFolder}/build/firmware_g4.elf",
-      "request": "launch",
-      "type": "cortex-debug",
-      "servertype": "openocd",
-      "device": "STM32G474RETx",
-      "configFiles": ["interface/stlink.cfg", "target/stm32g4x.cfg"],
-      "openOCDPreConfigLaunchCommands": ["transport select swd"],
-      "runToEntryPoint": "main"
-    },
-    {
-      "name": "Debug NUCLEO-F103RB (Cortex-M3)",
-      "cwd": "${workspaceFolder}",
-      "executable": "${workspaceFolder}/build/firmware_f1.elf",
-      "request": "launch",
-      "type": "cortex-debug",
-      "servertype": "openocd",
-      "device": "STM32F103RB",
-      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
-      "openOCDPreConfigLaunchCommands": ["transport select swd"],
-      "runToEntryPoint": "main"
-    }
-  ]
-}
-```
+루트의 `.vscode/launch.json`에 G474/F103 로컬 flash 디버깅과 RPi OpenOCD 원격 attach가 준비되어 있습니다. 실행 방법과 ELF 경로는 [빠른 시작 가이드](STM32_빠른_시작.md)를 참조하세요. F5 로컬 실행은 보드의 펌웨어를 덮어씁니다.
 
 ---
 
@@ -129,7 +99,7 @@ PC에 USB-to-CAN(Canable)을 연결하여 차량 버스 트래픽을 GUI로 볼 
 ### 1) SWD 디버그 핀 잠금 방지 (전 보드 공통 필수 ⭐⭐⭐)
 
 - **경로**: `System Core` ➡️ `SYS` ➡️ `Debug`
-- **설정**: 반드시 **`Serial Wire`** 지정! (`No Debug` 시 2번째 다운로드부터 칩 벽돌 현상 발생)
+- **설정**: 디버거를 사용한다면 `Serial Wire`로 지정하고 SWD 핀을 다른 기능과 충돌하지 않게 배치한다. 핀 재설정 등으로 디버깅이 안 되면 보드와 연결 방식에 따라 connect-under-reset 등의 복구 방법을 검토한다.
 
 ---
 
@@ -141,7 +111,7 @@ PC에 USB-to-CAN(Canable)을 연결하여 차량 버스 트래픽을 GUI로 볼 
 - **Connectivity** ➡️ **`FDCAN1`**:
   - **Frame Format**: `FD mode with BitRate Switching (BRS)` (최신 차량 고속 모드)
   - **Mode**: `Normal`
-  - **Clock**: PCLK1 (기본 170 MHz)
+  - **Clock**: 아래 값은 FDCAN 커널 클록을 실제로 170 MHz로 구성한 경우의 계산 예시. 보드 선택만으로 적용되지 않으며 Clock Configuration과 허용 범위를 확인한다.
   - **Nominal Bitrate (중재 구간, 500 kbps)**:
     - Prescaler: `17` (170MHz / 17 = 10 MHz)
     - Sync Jump Width: `1`
@@ -150,10 +120,7 @@ PC에 USB-to-CAN(Canable)을 연결하여 차량 버스 트래픽을 GUI로 볼 
     - Data Prescaler: `17`
     - Data Sync Jump Width: `1`
     - Data Time Segment 1: `3`, Data Time Segment 2: `1` (총 5 TQ ➡️ $10\,\text{MHz} / 5 = 2\,\text{Mbps}$)
-  - **Message RAM**:
-    - Standard Filter Elements: `2`
-    - Rx FIFO0 Elements: `3` (Data Field Size: `64 Bytes`)
-    - Tx FIFO/Queue Elements: `3` (Data Field Size: `64 Bytes`)
+  - **Message RAM / 필터**: G474 HAL과 CubeMX가 제공하는 설정 및 실제 하드웨어 제한을 확인하고 필요한 필터·FIFO를 구성한다. 다른 STM32 계열의 Message RAM 설정을 그대로 적용하지 않는다.
   - **NVIC Settings**: `FDCAN1 interrupt 0` ➡️ **Enabled**
 
 #### [FDCAN2 설정: 하위 F103 셀 Classic CAN 다운링크]
@@ -180,27 +147,7 @@ PC에 USB-to-CAN(Canable)을 연결하여 차량 버스 트래픽을 GUI로 볼 
 
 ### 4) `printf` UART 리디렉션 코드 스니펫 (디버깅용)
 
-`Core/Src/main.c`에 추가:
-
-```c
-/* USER CODE BEGIN Includes */
-#include <stdio.h>
-/* USER CODE END Includes */
-
-/* USER CODE BEGIN PFP */
-#ifdef __GNUC__
-int __io_putchar(int ch)
-#else
-int fputc(int ch, FILE *f)
-#endif
-{
-    // G474RE는 huart2 (PA2/PA3), F103RB도 huart2 (PA2/PA3)
-    extern UART_HandleTypeDef huart2;
-    HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);
-    return ch;
-}
-/* USER CODE END PFP */
-```
+보드 회로도와 CubeMX에서 VCP에 연결된 UART 인스턴스를 확인하고, 생성된 프로젝트의 라이브러리·syscall 설정에 맞게 `_write` 또는 해당 출력 훅을 구현합니다. G474RE의 기본 VCP는 LPUART1(PA2/PA3), F103RB는 USART2(PA2/PA3)입니다. 이 저장소의 최소 예제에는 HAL/UART 또는 `printf`가 포함되어 있지 않습니다. [ST G4 보드 매뉴얼](https://www.st.com/resource/en/user_manual/um2505-stm32g4-nucleo64-boards-mb1367-stmicroelectronics.pdf)
 
 ---
 
@@ -211,15 +158,15 @@ PC에서 빌드한 후 RPi 5에 꽂혀 있는 실물 STM32 보드로 곧바로 �
 ### 1) 빌드 바이너리 RPi 5로 전송 및 플래싱
 
 ```powershell
-# 1) utils/scp_to_rpi.ps1 유틸리티 활용 (본인 RPi IP로 자동 전송)
-.\utils\scp_to_rpi.ps1 -Source build/firmware.bin -Destination ~/firmware.bin
+# 1) 보드에 맞는 바이너리를 전송 (본인 RPi IP 지정)
+.\utils\scp_to_rpi.ps1 -Source build/debug/firmware_g474.bin -Destination ~/firmware.bin
 
 # 2) G474RE 보드로 플래싱 (ST-LINK V3E):
 .\utils\ssh_rpi.ps1 "st-flash --reset write ~/firmware.bin 0x08000000"
 
-# (참고) G474 Dual-Bank Bank 2에 쓸 경우:
-# .\utils\ssh_rpi.ps1 "st-flash write ~/firmware.bin 0x08040000"
 ```
+
+플래싱은 기존 펌웨어를 덮어씁니다. 시작 예제는 Bank 2 링크 주소, 부트로더 또는 OTA를 구현하지 않으므로 Bank 2에 그대로 쓰지 않습니다.
 
 ### 2) PC의 IDE에서 RPi 5 원격 GDB 디버깅
 

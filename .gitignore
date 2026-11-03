@@ -14,7 +14,16 @@ ENV/
 # OS / Editor
 .DS_Store
 Thumbs.db
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
 .idea/
 *.swp
 *.bak
+
+# Local STM32 tools and build artifacts
+.tools/
+build/
+firmware/cube-projects/
