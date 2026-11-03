@@ -31,8 +31,8 @@ cmake --preset debug
 cmake --build --preset debug
 ```
 
-| 대상 | 디버깅용 ELF | 바이너리 |
-| :--- | :--- | :--- |
+| 대상          | 디버깅용 ELF                    | 바이너리                        |
+| :------------ | :------------------------------ | :------------------------------ |
 | NUCLEO-G474RE | `build/debug/firmware_g474.elf` | `build/debug/firmware_g474.bin` |
 | NUCLEO-F103RB | `build/debug/firmware_f103.elf` | `build/debug/firmware_f103.bin` |
 
@@ -72,32 +72,79 @@ CubeIDE 2.x는 CubeMX가 분리되어 있습니다. [STM32CubeMX](https://www.st
 
 ## 5. RPi에 연결된 보드 원격 디버깅
 
-RPi에 SSH로 접속해, 안전한 상태에서 대상 보드에 맞는 OpenOCD를 실행합니다. 여러 프로브를 연결했다면 실제 ST-LINK 시리얼을 지정하세요.
+CubeIDE와 VS Code 모두 원격 디버깅을 지원합니다. 두 IDE는 PC에서 실행하고, STM32와 ST-LINK는 RPi에 연결합니다.
+
+```text
+PC의 CubeIDE 또는 VS Code → SSH 터널 → RPi의 OpenOCD → ST-LINK → STM32
+```
+
+### 5-1. 공통 준비: RPi의 OpenOCD와 PC의 SSH 터널
+
+RPi에 SSH로 접속하고 ST-LINK 보드가 연결되었는지 확인합니다.
 
 ```bash
-# RPi에서 G474RE 예시. F103RB는 target/stm32f1x.cfg 사용.
+st-info --probe
+```
+
+RPi에서 **대상 보드 하나에 맞는 명령 하나만** 실행하고, 이 터미널을 계속 열어 둡니다. 다음은 ST-LINK가 한 개 연결된 경우입니다.
+
+```bash
+# NUCLEO-F103RB
 openocd -c 'bindto 127.0.0.1' -f interface/stlink.cfg \
-  -c 'adapter serial <ST-LINK-시리얼>' \
+  -f target/stm32f1x.cfg
+```
+
+```bash
+# NUCLEO-G474RE
+openocd -c 'bindto 127.0.0.1' -f interface/stlink.cfg \
   -f target/stm32g4x.cfg
 ```
 
-위 명령은 RPi의 로컬 인터페이스에서만 GDB 포트 `3333`을 수신합니다. PC의 다른 터미널에서 SSH 터널을 만드세요.
+여러 ST-LINK가 연결되었다면 `-f interface/stlink.cfg` 다음에 `-c 'adapter serial 실제시리얼'`을 추가하여 대상을 지정합니다. 예를 들어 `-c 'adapter serial 0123456789ABCDEF'`에서 시리얼은 예시이므로 `st-info --probe`의 실제 값으로 바꿉니다. OpenOCD가 GDB 포트 `3333`에서 대기하는지 로그를 확인하세요.
+
+위 명령은 RPi의 로컬 인터페이스에서만 GDB 포트 `3333`을 수신합니다. **PC의 별도 PowerShell 창**에서 SSH 터널을 만들고, 디버깅 중 이 창도 계속 열어 둡니다.
 
 ```powershell
-ssh -L 3333:127.0.0.1:3333 pi@<RPi_IP>
+ssh -N -L 127.0.0.1:3333:127.0.0.1:3333 pi@<RPi_IP>
 ```
 
-VS Code에서 대상 보드의 `remote OpenOCD (attach)`를 선택하고 주소에 `127.0.0.1:3333`을 입력합니다. **원격 attach는 펌웨어를 다운로드하지 않으며 연결 중 타깃을 정지할 수 있습니다.** 로컬 ELF는 실제 보드에 실행 중인 펌웨어와 동일한 빌드여야 합니다. 별도 OpenOCD 인스턴스를 동시에 띄운다면 포트도 구분하세요.
+`<RPi_IP>`는 실제 주소로 바꿉니다. `-N` 사용 시 명령 프롬프트가 돌아오지 않는 것이 정상입니다. PC 포트 3333이 이미 사용 중이라면 `-L 127.0.0.1:3334:127.0.0.1:3333`으로 바꾸고, IDE에도 포트 `3334`를 입력합니다. 기본 예시는 OpenOCD를 외부 네트워크에 직접 공개하지 않습니다.
+
+### 5-2. STM32CubeIDE 2.x에서 원격 연결
+
+공통 준비를 마친 뒤, PC의 CubeIDE에서 다음을 설정합니다. 메뉴와 항목 명칭은 IDE 버전·프로젝트 종류에 따라 조금 다를 수 있습니다.
+
+1. 4절에 따라 프로젝트를 가져오거나 기존 프로젝트를 엽니다. 해당 MCU에서 **실행 중인 펌웨어와 정확히 같은 빌드의 디버그 심볼이 포함된 ELF**를 준비합니다. 기존 보드 펌웨어가 이 저장소의 시작 예제가 아니라면 `firmware_f103.elf` 또는 `firmware_g474.elf`를 그대로 사용하지 않습니다.
+2. `Run` → `Debug Configurations...`를 엽니다. 프로젝트의 기존 **STM32 C/C++ Application** 구성을 복제하거나 새 구성을 만들고, 이름을 `F103 RPi OpenOCD attach`처럼 지정합니다.
+3. **Main** 탭에서 프로젝트와 일치하는 ELF를 선택합니다. 실행 이미지가 바뀌지 않도록, 기존 펌웨어의 심볼을 사용하는 경우 자동 빌드가 ELF를 덮어쓰지 않는지도 확인합니다.
+4. **Debugger** 탭에서 다음을 설정합니다.
+   - `Debug probe`: `ST-LINK (OpenOCD)`. RPi에서 실행한 서버도 OpenOCD여야 합니다.
+   - `Connect to remote GDB server` 선택.
+   - `Host name or IP address`: `127.0.0.1`, `Port number`: `3333`(SSH 터널의 PC 측 포트).
+   - `Reset behaviour` 또는 해당 reset 설정: `None`. 선택 가능한 항목은 구성에 따라 다를 수 있습니다.
+5. **Startup** 탭에서 기존 펌웨어를 보존하는 설정을 확인합니다.
+   - `Load Image and Symbols`에서 해당 ELF를 선택하고 `Edit...`을 눌러 **Download는 해제**, **Load symbols는 선택**합니다.
+   - `Set program counter`와 `Set breakpoint at`은 해제하고 `Resume`도 해제합니다.
+   - `Initialization Commands`와 `Run Commands`에 기존 설정이 있다면 `reset`, `load`, `continue`, `set $pc` 등 상태를 바꾸는 명령이 실행되지 않도록 확인합니다.
+6. `Apply` → `Debug`를 눌러 연결합니다. 연결 후 레지스터와 소스 위치를 확인하고, 필요한 경우에만 실행을 재개합니다. 연결 과정에서 MCU가 일시 정지할 수 있습니다.
+
+`Download`를 선택하면 선택한 ELF가 원격 보드에 기록될 수 있고, reset 설정이나 시작 명령도 기존 상태를 바꿀 수 있습니다. 새 펌웨어 다운로드가 필요할 때는 별도 디버그 구성을 만들어 대상 MCU·ELF·시작 동작을 확인한 뒤 실행하세요.
+
+이 절차는 [ST CubeIDE 사용자 매뉴얼의 원격 GDB 및 attach 설정](https://www.st.com/content/ccc/resource/technical/document/user_manual/group1/f8/a2/48/77/68/e6/4b/74/DM00629856/files/DM00629856.pdf/jcr%3Acontent/translations/en.DM00629856.pdf)을 기준으로 작성했습니다. CubeIDE GUI와 실제 RPi 간 원격 연결은 아직 실기 검증하지 않았습니다.
+
+### 5-3. VS Code에서 원격 연결
+
+공통 준비 후 대상 보드의 `remote OpenOCD (attach)`를 선택하고 주소에 `127.0.0.1:3333`을 입력합니다. **원격 attach는 펌웨어를 다운로드하지 않으며 연결 중 타깃을 정지할 수 있습니다.** 로컬 ELF는 실제 보드에 실행 중인 펌웨어와 동일한 빌드여야 합니다. 별도 OpenOCD 인스턴스를 동시에 띄운다면 포트도 구분하세요.
 
 ## 6. 문제 해결
 
-| 증상 | 확인할 항목 |
-| :--- | :--- |
-| `arm-none-eabi-gcc` 또는 `openocd` 없음 | Windows에서는 설치 스크립트를 다시 실행. 다른 OS에서는 PATH 확인 |
-| CMake가 예전 컴파일러를 사용 | `build/debug/CMakeCache.txt`의 경로를 확인하고 해당 빌드 디렉터리를 정리한 뒤 재구성 |
-| ST-LINK 연결 실패 | USB 데이터 케이블·전원·Windows 드라이버·다른 디버거의 점유 확인 |
-| 엉뚱한 보드가 동작 | 디버그 대상·ELF·ST-LINK 시리얼 확인. 단일 프로브로 먼저 검증 |
-| LED가 켜지지 않음 | 보드 종류·LD2/PA5 기본 연결·플래시 실행 여부 확인 |
-| 원격 접속 실패 | RPi의 OpenOCD 실행 상태·포트·SSH 터널 확인 |
+| 증상                                    | 확인할 항목                                                                          |
+| :-------------------------------------- | :----------------------------------------------------------------------------------- |
+| `arm-none-eabi-gcc` 또는 `openocd` 없음 | Windows에서는 설치 스크립트를 다시 실행. 다른 OS에서는 PATH 확인                     |
+| CMake가 예전 컴파일러를 사용            | `build/debug/CMakeCache.txt`의 경로를 확인하고 해당 빌드 디렉터리를 정리한 뒤 재구성 |
+| ST-LINK 연결 실패                       | USB 데이터 케이블·전원·Windows 드라이버·다른 디버거의 점유 확인                      |
+| 엉뚱한 보드가 동작                      | 디버그 대상·ELF·ST-LINK 시리얼 확인. 단일 프로브로 먼저 검증                         |
+| LED가 켜지지 않음                       | 보드 종류·LD2/PA5 기본 연결·플래시 실행 여부 확인                                    |
+| 원격 접속 실패                          | RPi의 OpenOCD 실행 상태·포트·SSH 터널 확인                                           |
 
 상세 오류 분석과 CAN 진단은 [STM32 디버깅 가이드](stm32_디버깅_작업_가이드.md)를 참고하세요. 실습 벤치의 CAN 규약은 [CAN 아키텍처](차량용_CAN_통신_도입_및_아키텍처_설계.md)와 별도 합의가 기준입니다.
