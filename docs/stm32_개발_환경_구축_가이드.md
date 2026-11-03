@@ -8,14 +8,14 @@
 
 ## 1. 하드웨어 보드별 스펙 및 개발 타깃 요약
 
-| 구분              | **NUCLEO-G474RE (메인 DCU / VCU)** ⭐    | **NUCLEO-F103RB (분산 ECU x3)**         |
-| :---------------- | :--------------------------------------- | :-------------------------------------- |
-| **차량 역할**     | **Main 도메인 제어기 & FOC 모터 인버터** | **BMS, 바디 BCM, 계기판 클러스터**      |
-| **코어 / 클록**   | **ARM Cortex-M4F @ 170 MHz (FPU/DSP)**   | **ARM Cortex-M3 @ 72 MHz**              |
-| **Flash / RAM**   | **512 KB (Dual-Bank 설정 가능) / 128 KB SRAM (96 KB + 32 KB CCM)** | **128 KB / 20 KB** |
-| **통신 규격**     | **FDCAN x 3 (최대 5 Mbps CAN FD, 64B)**  | **bxCAN (최대 1 Mbps Classic CAN, 8B)** |
-| **온보드 디버거** | **ST-LINK V3E** (고속)                   | **ST-LINK V2-1**                        |
-| **OpenOCD 타깃**  | `target/stm32g4x.cfg`                    | `target/stm32f1x.cfg`                   |
+| 구분              | **NUCLEO-G474RE (메인 DCU / VCU)** ⭐                              | **NUCLEO-F103RB (분산 ECU x3)**         |
+| :---------------- | :----------------------------------------------------------------- | :-------------------------------------- |
+| **차량 역할**     | **Main 도메인 제어기 & FOC 모터 인버터**                           | **BMS, 바디 BCM, 계기판 클러스터**      |
+| **코어 / 클록**   | **ARM Cortex-M4F @ 170 MHz (FPU/DSP)**                             | **ARM Cortex-M3 @ 72 MHz**              |
+| **Flash / RAM**   | **512 KB (Dual-Bank 설정 가능) / 128 KB SRAM (96 KB + 32 KB CCM)** | **128 KB / 20 KB**                      |
+| **통신 규격**     | **FDCAN x 3 (최대 5 Mbps CAN FD, 64B)**                            | **bxCAN (최대 1 Mbps Classic CAN, 8B)** |
+| **온보드 디버거** | **ST-LINK V3E** (고속)                                             | **ST-LINK V2-1**                        |
+| **OpenOCD 타깃**  | `target/stm32g4x.cfg`                                              | `target/stm32f1x.cfg`                   |
 
 ---
 
@@ -59,7 +59,7 @@ PC에 USB-to-CAN(Canable)을 연결하여 차량 버스 트래픽을 GUI로 볼 
 
 ### 단계 1: 설치
 
-[STM32CubeIDE 공식 사이트](https://www.st.com/en/development-tools/stm32cubeide.html)에서 설치합니다. **CubeIDE 2.x는 CubeMX를 별도 설치**해야 합니다. 저장소의 CMake 예제를 가져오는 단계는 [빠른 시작 가이드](STM32_빠른_시작.md)를 따르세요.
+[STM32CubeIDE 공식 사이트](https://www.st.com/en/development-tools/stm32cubeide.html)에서 설치합니다. **CubeIDE 2.x는 [CubeMX](https://www.st.com/en/development-tools/stm32cubemx.html)를 별도 설치**해야 합니다. 저장소의 CMake 예제를 가져오는 단계는 [빠른 시작 가이드](STM32_빠른_시작.md)를 따르세요.
 
 ### 단계 2: 보드별 새 프로젝트 생성
 
