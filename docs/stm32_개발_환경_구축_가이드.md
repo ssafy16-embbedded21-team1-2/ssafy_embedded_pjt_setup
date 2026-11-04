@@ -72,6 +72,22 @@ CubeMX의 **Board Selector**에서 본인 보드를 선택합니다. CubeIDE 2.x
 
 - 생성한 설정과 HAL 드라이버 포함 여부를 확인한다. 보드를 선택한 것만으로 170 MHz 또는 72 MHz 설정이 보장되지는 않는다.
 
+### 단계 3: CubeMX에서 CubeIDE용 프로젝트 생성 및 가져오기
+
+**CubeMX의 `Toolchain / IDE`가 기본적으로 `STM32CubeIDE`로 설정되어 있다고 가정하지 마세요.** CubeMX 6.x에서 다음 항목을 직접 확인하고 선택합니다.
+
+1. 핀과 클록을 설정한 후 **Project Manager → Project**를 엽니다.
+2. **Project Name**과 **Project Location**을 지정합니다. 기존 프로젝트를 덮어쓰거나 그 안에 같은 이름의 프로젝트를 중첩하지 않도록 **Toolchain Folder Location**도 확인합니다.
+3. **Toolchain / IDE** 드롭다운에서 **`STM32CubeIDE`**를 선택합니다. 표시된 다른 기본값을 그대로 사용하면 여기서 설명하는 CubeIDE용 프로젝트 파일이 생성되지 않을 수 있습니다.
+4. 프로젝트 파일을 `.ioc`와 같은 프로젝트 루트에 두려면 **Generate Under Root**를 체크합니다. 체크하지 않으면 CubeIDE용 프로젝트 파일이 별도 툴체인 폴더에 생성됩니다.
+5. **Generate Code**를 누릅니다. 필요한 STM32Cube 펌웨어 패키지를 요청하면 설치하고 생성을 완료합니다.
+6. CubeIDE 2.x에서 **File → STM32 Project Create/Import → Import STM32 Project → STM32CubeMX/STM32CubeIDE Project**를 선택하고 생성된 프로젝트를 가져옵니다. Generate Under Root 사용 시 `.ioc`, `.project`, `.cproject`가 프로젝트 루트에 있는지 확인합니다. 이미 가져온 프로젝트는 중복으로 가져오기보다 새로고침합니다.
+7. 프로젝트를 빌드하고 생성된 ELF가 대상 보드와 일치하는지 확인한 후 디버그 구성을 만듭니다. 기존 코드를 수정할 때는 CubeMX가 제공하는 `USER CODE` 영역과 재생성 동작을 확인합니다.
+
+> **CMake를 선택한 경우**: CMake 프로젝트도 CubeIDE의 CMake 프로젝트 가져오기 기능으로 사용할 수 있지만, 위의 `STM32CubeMX/STM32CubeIDE Project` 가져오기 절차와는 다릅니다. CMake 프로젝트는 [빠른 시작 가이드의 CMake 가져오기 절차](STM32_빠른_시작.md)를 참고하세요. CubeMX2는 생성 화면과 선택지가 다를 수 있습니다.
+
+참고: [ST의 CubeIDE 2.x 프로젝트 생성·가져오기 절차](https://community.st.com/stm32-mcus-60/stm32cubeide-2-0-0-workflow-tutorial-160701), [CubeMX Generate Under Root 설명](https://dev.st.com/stm32cube-docs/stm32cubemx/6.18.1/en/docs/markup/CubeMX_UserManual/chapters/04_4_stm32cubemx_user_interface.html).
+
 ---
 
 ## 4. [옵션 B] VS Code + CMake 환경 구축 (모던)

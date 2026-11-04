@@ -51,7 +51,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup_stm32_window
 
 ### 2-3. 새 CubeMX/HAL 프로젝트를 만드는 경우
 
-CubeIDE 2.x에서는 [STM32CubeMX](https://www.st.com/en/development-tools/stm32cubemx.html)를 별도 설치합니다. CubeMX의 Board Selector에서 보드를 선택하고, IDE 버전에 맞게 STM32CubeIDE 또는 CMake 프로젝트를 생성한 뒤 CubeIDE에 가져오세요. CubeMX2의 CMake 프로젝트는 CubeIDE 2.1.1 이상의 CMake 가져오기 절차를 사용할 수 있습니다. [ST CubeIDE 2.x 안내](https://community.st.com/stm32-mcus-60/stm32cubeide-2-0-0-workflow-tutorial-160701), [ST CMake 가져오기 예시](https://community.st.com/stm32-mcus-60/how-to-import-a-stm32cubemx2-cmake-project-into-stm32cubeide-164166)
+CubeIDE 2.x에서는 [STM32CubeMX](https://www.st.com/en/development-tools/stm32cubemx.html)를 별도 설치합니다. CubeMX 6.x에서 CubeIDE용 프로젝트를 새로 만들 때는 **Project Manager → Project → Toolchain / IDE에서 `STM32CubeIDE`를 직접 선택**하세요. 기본 선택값을 그대로 사용하지 말고 코드 생성 전에 확인해야 합니다.
+
+1. CubeMX의 **Board Selector**에서 보드를 선택하고 핀과 클록을 설정합니다.
+2. **Project Manager → Project**에서 프로젝트 이름과 위치를 지정하고, **Toolchain / IDE → `STM32CubeIDE`**를 선택합니다.
+3. `.ioc`와 CubeIDE 프로젝트 파일을 같은 프로젝트 루트에 두려면 **Generate Under Root**를 체크합니다. 생성 대상이 기존 프로젝트와 겹치거나 중첩되지 않는지 **Toolchain Folder Location**을 확인합니다.
+4. **Generate Code**를 누른 뒤, CubeIDE에서 **File → STM32 Project Create/Import → Import STM32 Project → STM32CubeMX/STM32CubeIDE Project**를 선택해 생성한 프로젝트를 가져옵니다. 이미 등록된 프로젝트는 새로고침합니다.
+
+`CMake` 형식도 CubeIDE에서 사용할 수 있지만, 그 경우에는 별도의 **STM32 CMake Project** 가져오기 경로를 사용합니다. CubeMX2는 생성 화면과 선택지가 다를 수 있으며, CubeMX2의 CMake 프로젝트는 CubeIDE 2.1.1 이상의 CMake 가져오기 절차를 사용할 수 있습니다. [ST CubeIDE 2.x 안내](https://community.st.com/stm32-mcus-60/stm32cubeide-2-0-0-workflow-tutorial-160701), [ST CMake 가져오기 예시](https://community.st.com/stm32-mcus-60/how-to-import-a-stm32cubemx2-cmake-project-into-stm32cubeide-164166)
 
 생성 프로젝트는 `firmware/cube-projects/<프로젝트명>/` 같은 별도 폴더에 두세요. 이 폴더는 기본적으로 Git에서 제외됩니다. 팀에서 공유할 프로젝트라면 ignore 정책을 검토하고 `.ioc`, 사용자 코드, 필요한 빌드 설정을 명시적으로 관리해야 합니다. 기존 LED 예제는 CubeMX가 재생성하지 않습니다. CubeMX 생성 코드 수정은 해당 프로젝트의 `USER CODE` 영역을 사용하고, 생성 전 실제 클록·핀·CAN 설정을 확인하세요.
 
