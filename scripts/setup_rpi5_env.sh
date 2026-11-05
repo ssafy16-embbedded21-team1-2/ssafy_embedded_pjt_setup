@@ -7,7 +7,7 @@
 # 2. 임베디드 디버깅 툴체인 (openocd, gdb-multiarch, stlink-tools, pyocd, udev)
 # 3. llama.cpp 빌드 및 시스템 전역 설치 (/usr/local/bin)
 # 4. 온디바이스 SLM 모델 다운로드 (Qwen 2.5 3B Instruct, Qwen 3 4B)
-# 5. 파이썬 진단 라이브러리 및 CMSIS-DAP 팩 설치
+# 5. 파이썬 진단 라이브러리 및 CMSIS Device Family Pack (DFP) 설치
 # 6. Docker Engine, Compose / Buildx 플러그인 및 사용자 권한 설정
 # ==============================================================================
 
@@ -98,20 +98,54 @@ install_system_and_embedded_tools() {
     sudo usermod -aG dialout,plugdev "$USER"
 
     # PyOCD 설치
-    log_info "PyOCD 설치 및 CMSIS-DAP 팩 설치 중..."
+    log_info "PyOCD 설치 및 CMSIS Device Family Pack (DFP) 설치 중..."
     sudo pip3 install --break-system-packages pyocd pyserial requests fastapi uvicorn
 
-    # PyOCD 타깃 팩 설치 (STM32F1, STM32F4)
-    log_info "STM32F1 / STM32F4용 PyOCD DFP 팩 다운로드 중..."
-    pyocd pack update || true
-    pyocd pack install stm32f1xx || true
-    pyocd pack install stm32f4xx || true
+    install_pyocd_targets
+    # 기존 STM32F4 예제용 지원도 유지합니다. 검색 인자는 팩 이름이 아닌 MCU 부품명입니다.
+    pyocd pack install stm32f401re
 
     # Udev 규칙 리로드
     sudo udevadm control --reload-rules || true
     sudo udevadm trigger || true
 
     log_success "임베디드 툴체인(OpenOCD/GDB/pyocd) 및 권한 설정 완료."
+}
+
+# ------------------------------------------------------------------------------
+# NUCLEO-F103RB / NUCLEO-G474RE 전용 PyOCD 타깃
+# ------------------------------------------------------------------------------
+install_pyocd_targets() {
+    if ! command -v pyocd >/dev/null 2>&1; then
+        log_error "PyOCD가 없습니다. 먼저 --tools로 설치하세요."
+        return 1
+    fi
+    log_info "STM32F103RB / STM32G474RE용 PyOCD 타깃 팩 설치 중..."
+    # pack install은 MCU 부품명을 검색합니다. stm32f1xx 같은 팩 이름은 사용하지 않습니다.
+    pyocd pack install stm32f103rb
+    pyocd pack install stm32g474re
+    verify_pyocd_targets
+}
+
+verify_pyocd_targets() {
+    if ! command -v pyocd >/dev/null 2>&1; then
+        log_error "PyOCD가 없습니다. --tools로 설치하세요."
+        return 1
+    fi
+    local target_list
+    target_list=$(pyocd list --targets) || return 1
+    local target
+    local missing=0
+    # G474RE의 현재 DFP 타깃 이름에는 패키지 접미사 tx가 붙습니다.
+    for target in stm32f103rb stm32g474retx; do
+        if awk -v target="$target" '$1 == target {found=1} END {exit !found}' <<< "$target_list"; then
+            log_success "PyOCD 전용 타깃 사용 가능: ${target}"
+        else
+            log_error "PyOCD 전용 타깃 없음: ${target}. --targets로 설치하세요."
+            missing=1
+        fi
+    done
+    return "$missing"
 }
 
 # ------------------------------------------------------------------------------
@@ -418,6 +452,10 @@ verify_installation() {
     verify_docker_installation || log_warn "Docker 점검 실패. 위 오류를 해결한 후 --verify를 다시 실행하세요."
 
     echo ""
+    echo "▶ 6. NUCLEO-F103RB / NUCLEO-G474RE 전용 PyOCD 타깃:"
+    verify_pyocd_targets || log_warn "PyOCD 타깃 점검 실패. --targets로 팩 설치 후 다시 확인하세요."
+
+    echo ""
     log_info "점검 종료. 위 오류·경고를 확인하고, 그룹 권한 변경 후에는 재로그인하세요."
 }
 
@@ -431,6 +469,7 @@ usage() {
     echo "  --all              전체 설치 (Docker + 도구 + llama.cpp + Qwen 2.5 3B 모델 + 스크립트 + 검증)"
     echo "  --docker           Docker Engine + Compose / Buildx + docker 그룹 설정"
     echo "  --tools            임베디드 툴체인만 설치 (OpenOCD, GDB, stlink, pyocd, udev)"
+    echo "  --targets          기존 PyOCD에 F103RB / G474RE 타깃 팩만 설치·검증"
     echo "  --llama            llama.cpp만 빌드 및 전역 설치 (/usr/local/bin)"
     echo "  --model [TYPE]     모델 다운로드 ('qwen3b'(기본값), 'qwen3_4b', 'all')"
     echo "  --scripts          헬퍼 스크립트만 배포 (~/scripts)"
@@ -456,6 +495,9 @@ case "${1:-}" in
     --tools)
         check_prerequisites
         install_system_and_embedded_tools
+        ;;
+    --targets)
+        install_pyocd_targets
         ;;
     --llama)
         build_llama_cpp

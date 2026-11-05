@@ -5,7 +5,7 @@
 1. **llama.cpp**: ARM Cortex-A76 최적화 네이티브 빌드 및 전역 바이너리 설치 (`llama-cli`, `llama-server`)
 2. **온디바이스 SLM 모델**: 추천 1순위 **Qwen 2.5 3B Instruct** (2.0GB) 및 **Qwen 3 4B** (2.4GB)
 3. **임베디드 진단 툴체인**: OpenOCD (SWD 최적화), GDB Multiarch, stlink-tools, addr2line
-4. **Python 임베디드 툴**: PyOCD (STM32F1/F4 타깃 팩 포함), pyserial, udev 권한 자동 설정
+4. **Python 임베디드 툴**: PyOCD (NUCLEO-F103RB / NUCLEO-G474RE 및 기존 STM32F4 예제용 타깃 팩), pyserial, udev 권한 자동 설정
 5. **Docker 실행 환경**: Docker Engine, Compose 및 Buildx 플러그인, 서비스 자동 시작 및 `docker` 그룹 설정
 
 Docker는 진단 Agent 컨테이너 실행용이며, `llama.cpp`와 모델은 기존처럼 RPi 호스트에 설치합니다. 이 스크립트는 Docker 실행 환경까지 준비하며, Agent 저장소의 클론과 `docker compose up`은 해당 저장소의 안내에 따라 별도로 수행합니다.
@@ -45,17 +45,18 @@ chmod +x setup_rpi5_env.sh
 
 필요에 따라 특정 컴포넌트만 선택하여 설치할 수 있습니다:
 
-| 실행 옵션                              | 설명                                                                               |     소요 시간      |
-| :------------------------------------- | :--------------------------------------------------------------------------------- | :----------------: |
-| `./setup_rpi5_env.sh --all`            | Docker, 시스템 패키지, 임베디드 툴, llama.cpp, Qwen 2.5 3B 모델, 스크립트 배포 및 검증 | 빌드·네트워크 속도 의존 |
-| `./setup_rpi5_env.sh --docker`         | Docker 공식 APT 저장소를 통한 Engine, Compose / Buildx 설치, 서비스 시작, 그룹 설정 및 점검 | 네트워크 속도 의존 |
-| `./setup_rpi5_env.sh --tools`          | OpenOCD, GDB-multiarch, stlink-tools, PyOCD, CMSIS-DAP 팩, udev 권한 설정만 설치   |     약 1\~2분      |
-| `./setup_rpi5_env.sh --llama`          | llama.cpp 소스 클론, Cortex-A76 멀티코어 최적화 컴파일, `/usr/local/bin` 전역 설치 |     약 3\~4분      |
-| `./setup_rpi5_env.sh --model qwen3b`   | **Qwen 2.5 3B Instruct** (`Q4_K_M`, ~2.0GB) 다운로드 (추천 1순위)                  | 네트워크 속도 의존 |
-| `./setup_rpi5_env.sh --model qwen3_4b` | **Qwen 3 4B** (`Q4_K_M`, ~2.4GB) 다운로드 (심층 추론 모드)                         | 네트워크 속도 의존 |
-| `./setup_rpi5_env.sh --model all`      | 3B 및 4B 모델 2종 모두 다운로드 (~4.4GB)                                           | 네트워크 속도 의존 |
-| `./setup_rpi5_env.sh --scripts`        | `~/scripts` 폴더에 대화/서버/SWD 검증 헬퍼 스크립트 배포                           |        1초         |
-| `./setup_rpi5_env.sh --verify`         | 바이너리, 모델, USB 권한, ST-Link 및 Docker 데몬·플러그인·메모리 제한 지원 점검 | 환경에 따라 다름 |
+| 실행 옵션                              | 설명                                                                                        |        소요 시간        |
+| :------------------------------------- | :------------------------------------------------------------------------------------------ | :---------------------: |
+| `./setup_rpi5_env.sh --all`            | Docker, 시스템 패키지, 임베디드 툴, llama.cpp, Qwen 2.5 3B 모델, 스크립트 배포 및 검증      | 빌드·네트워크 속도 의존 |
+| `./setup_rpi5_env.sh --docker`         | Docker 공식 APT 저장소를 통한 Engine, Compose / Buildx 설치, 서비스 시작, 그룹 설정 및 점검 |   네트워크 속도 의존    |
+| `./setup_rpi5_env.sh --tools`          | OpenOCD, GDB-multiarch, stlink-tools, PyOCD, DFP 타깃 팩, udev 권한 설정만 설치             |        약 1\~2분        |
+| `./setup_rpi5_env.sh --targets`        | 기존 PyOCD에 NUCLEO-F103RB / NUCLEO-G474RE 전용 타깃 팩만 설치하고 인식 여부 검증           |   네트워크 속도 의존    |
+| `./setup_rpi5_env.sh --llama`          | llama.cpp 소스 클론, Cortex-A76 멀티코어 최적화 컴파일, `/usr/local/bin` 전역 설치          |        약 3\~4분        |
+| `./setup_rpi5_env.sh --model qwen3b`   | **Qwen 2.5 3B Instruct** (`Q4_K_M`, ~2.0GB) 다운로드 (추천 1순위)                           |   네트워크 속도 의존    |
+| `./setup_rpi5_env.sh --model qwen3_4b` | **Qwen 3 4B** (`Q4_K_M`, ~2.4GB) 다운로드 (심층 추론 모드)                                  |   네트워크 속도 의존    |
+| `./setup_rpi5_env.sh --model all`      | 3B 및 4B 모델 2종 모두 다운로드 (~4.4GB)                                                    |   네트워크 속도 의존    |
+| `./setup_rpi5_env.sh --scripts`        | `~/scripts` 폴더에 대화/서버/SWD 검증 헬퍼 스크립트 배포                                    |           1초           |
+| `./setup_rpi5_env.sh --verify`         | 바이너리, 모델, USB 권한, ST-Link 및 Docker 데몬·플러그인·메모리 제한 지원 점검             |    환경에 따라 다름     |
 
 기존 환경에 Docker만 추가하려면 `./setup_rpi5_env.sh --docker`를 실행하세요. `--tools`, `--llama`, `--model`, `--scripts`는 Docker를 설치하지 않습니다. 공식 Docker 패키지 5종이 모두 설치되어 있으면 기존 버전을 재사용합니다. 충돌 패키지는 자동 삭제하지 않으며, 발견 시 패키지명을 출력하고 중단합니다.
 
@@ -128,20 +129,58 @@ sudo apt-get install -y \
 sudo usermod -aG dialout,plugdev $USER
 ```
 
-### 단계 3: PyOCD 및 STM32 CMSIS-DAP 팩 설치
+### 단계 3: PyOCD 및 STM32 Device Family Pack (DFP) 설치
 
 ```bash
 sudo pip3 install --break-system-packages pyocd pyserial requests fastapi uvicorn
 
-# STM32F1 (Nucleo-F103) 및 STM32F4 (Nucleo-F401/F411/F446) 타깃 팩 설치
+# 팩 설치는 sudo 없이 PyOCD를 실제 사용할 계정에서 실행합니다.
+# 검색 인자는 팩 이름이 아닌 MCU 부품명입니다.
 pyocd pack update
-pyocd pack install stm32f1xx
-pyocd pack install stm32f4xx
+pyocd pack install stm32f103rb
+pyocd pack install stm32g474re
+# 기존 STM32F4 예제를 사용할 경우
+pyocd pack install stm32f401re
+
+pyocd pack show
+pyocd list --targets
+pyocd list
 
 # udev 규칙 새로고침
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
+
+`stm32f1xx` / `stm32f4xx`는 부품명 검색 패턴으로 적합하지 않아 팩이 설치되지 않을 수 있습니다. 자동 스크립트는 필요한 타깃이 실제 목록에 등록되는지 검사하며 설치 실패를 숨기지 않습니다.
+
+| 보드          | 팩 검색·설치 인자 | PyOCD `--target` 값 | 2026-11-05 RPi 설치 확인   |
+| ------------- | ----------------- | ------------------- | -------------------------- |
+| NUCLEO-F103RB | `stm32f103rb`     | `stm32f103rb`       | `Keil.STM32F1xx_DFP` 2.4.1 |
+| NUCLEO-G474RE | `stm32g474re`     | `stm32g474retx`     | `Keil.STM32G4xx_DFP` 2.2.0 |
+
+팩 버전은 설치 시점에 따라 바뀔 수 있습니다. 두 팩은 같은 사용자 환경에 함께 설치할 수 있으며, 연결한 보드에 맞는 타깃을 선택합니다. 이번 RPi에서는 F103RB가 `pyocd list`에서 `✔︎ stm32f103rb`로 자동 인식되었습니다. G474RE는 타깃 등록까지 확인했으며 실물 접속은 검증하지 않았습니다. 검색·설치와 타깃 선택 방식은 [PyOCD 공식 문서](https://pyocd.io/docs/target_support.html)를 참고하세요.
+
+기존 RPi에 두 팩만 추가하는 명령은 다음과 같습니다.
+
+```bash
+bash scripts/setup_rpi5_env.sh --targets
+```
+
+보드를 연결한 뒤 다음 명령으로 전용 타깃의 메모리 맵과 주변장치 정의를 조회할 수 있습니다. 각각 해당 보드를 연결했을 때 실행하세요. 여러 프로브가 연결되어 있으면 `pyocd list`의 Unique ID를 `--uid`로 추가합니다.
+
+```bash
+# NUCLEO-F103RB
+pyocd commander --no-config --target stm32f103rb --connect attach --frequency 1000000 \
+    -O auto_unlock=false -O resume_on_disconnect=false \
+    -c "show map; show peripherals; exit"
+
+# NUCLEO-G474RE
+pyocd commander --no-config --target stm32g474retx --connect attach --frequency 1000000 \
+    -O auto_unlock=false -O resume_on_disconnect=false \
+    -c "show map; show peripherals; exit"
+```
+
+이 예시는 펌웨어 쓰기·삭제·리셋·정지 명령을 실행하지 않습니다. SVD 주변장치 목록은 팩의 레지스터 정의이며, 목록을 표시하는 것만으로 해당 주변장치의 실시간 상태까지 수집되는 것은 아닙니다.
 
 ### 단계 4: llama.cpp 빌드 및 전역 설치
 
