@@ -338,9 +338,11 @@ cat /proc/cmdline
 cat /sys/fs/cgroup/cgroup.controllers
 ```
 
-마지막 명령은 cgroup v2 환경용입니다. `cgroup_disable=memory`가 있거나 컨트롤러 목록에 `memory`가 없으면 커널 설정을 확인해야 합니다. 이 상태에서는 Compose에 메모리 제한을 적어도 호스트 전체 메모리를 보호하지 못할 수 있습니다. `docker stats`의 `0B / 0B`도 실제 메모리 사용량이 0이라는 뜻으로 해석하면 안 됩니다.
+마지막 명령은 cgroup v2 환경용입니다. 컨트롤러 목록에 `memory`가 없거나 Docker가 `memory=false`이면 커널 설정을 확인해야 합니다. RPi 펌웨어가 넣는 `cgroup_disable=memory` 뒤에 `cgroup_enable=memory`가 적용되면 활성화될 수 있으므로, 비활성화 문자열의 존재만으로 판단하지 않습니다. 메모리 제한 미지원 상태에서는 Compose에 제한을 적어도 적용되지 않을 수 있습니다. `docker stats`의 `0B / 0B`도 실제 메모리 사용량이 0이라는 뜻으로 해석하면 안 됩니다.
 
 부팅 설정 파일의 위치와 활성화 방법은 사용하는 OS·커널에 맞게 확인한 뒤 적용하고 재부팅해야 합니다. 이 설치 스크립트는 경고만 출력하며 부팅 설정 변경이나 재부팅을 수행하지 않습니다. 호스트에서 직접 실행하는 `llama-server`는 Agent 컨테이너의 메모리 제한 대상에 포함되지 않습니다. 자세한 내용은 [Docker 리소스 제한 문서](https://docs.docker.com/engine/containers/resource_constraints/)를 참고하세요.
+
+현재 RPi에 적용한 부팅 인자, 컨테이너 제한 확인, Qwen의 부팅 시 자동 시작 설정은 [RPi5 런타임 운영 설정](RPi5_런타임_운영_설정.md)을 참고하세요. `cmdline.txt`가 비어 있으면 루트 파일시스템 인자부터 보존해야 합니다.
 
 ---
 

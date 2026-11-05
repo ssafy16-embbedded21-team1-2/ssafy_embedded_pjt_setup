@@ -1,0 +1,26 @@
+[Unit]
+Description=RPi5 Agent Qwen 2.5 3B inference server
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+PartOf=docker.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi
+Environment=LLAMA_MODEL=/home/pi/models/qwen2.5-3b-instruct-q4_k_m.gguf
+ExecStart=/usr/local/libexec/run_rpi5_qwen_service.sh
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+MemoryAccounting=true
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
