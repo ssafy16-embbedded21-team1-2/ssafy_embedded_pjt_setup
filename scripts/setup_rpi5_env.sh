@@ -8,6 +8,7 @@
 # 3. llama.cpp 빌드 및 시스템 전역 설치 (/usr/local/bin)
 # 4. 온디바이스 SLM 모델 다운로드 (Qwen 2.5 3B Instruct, Qwen 3 4B)
 # 5. 파이썬 진단 라이브러리 및 CMSIS-DAP 팩 설치
+# 6. Docker Engine, Compose / Buildx 플러그인 및 사용자 권한 설정
 # ==============================================================================
 
 set -eo pipefail
@@ -50,7 +51,7 @@ check_prerequisites() {
     # 아키텍처 확인
     ARCH=$(uname -m)
     if [[ "$ARCH" != "aarch64" ]]; then
-        log_warn "현재 아키텍처는 ${ARCH} 입니다. (RPi5 64-bit Debian Bookworm 권장)"
+        log_warn "현재 아키텍처는 ${ARCH} 입니다. (RPi5 64-bit Debian Bookworm / Trixie 대상)"
     else
         log_success "64-bit ARM 아키텍처 확인 완료 (${ARCH})"
     fi
@@ -68,7 +69,7 @@ check_prerequisites() {
 # 1. 시스템 패키지 및 임베디드 툴체인 설치
 # ------------------------------------------------------------------------------
 install_system_and_embedded_tools() {
-    log_info "1/4. 시스템 패키지 및 임베디드 디버깅 툴체인 설치 시작..."
+    log_info "시스템 패키지 및 임베디드 디버깅 툴체인 설치 시작..."
 
     sudo apt-get update -y
     sudo apt-get install -y \
@@ -114,10 +115,135 @@ install_system_and_embedded_tools() {
 }
 
 # ------------------------------------------------------------------------------
+# Docker Engine 및 Compose 설치 (Debian 기반 Raspberry Pi OS 64-bit)
+# ------------------------------------------------------------------------------
+package_installed() {
+    [[ "$(dpkg-query -W -f='${Status}' "$1" 2>/dev/null)" == "install ok installed" ]]
+}
+
+install_docker() {
+    log_info "Docker Engine / Compose / Buildx 설치 시작..."
+
+    local ID VERSION_CODENAME
+    # shellcheck source=/dev/null
+    . /etc/os-release
+    local docker_arch
+    docker_arch=$(dpkg --print-architecture)
+    if [[ "${ID:-}" != "debian" && "${ID:-}" != "raspbian" ]] || \
+       [[ "$docker_arch" != "arm64" ]] || \
+       [[ "${VERSION_CODENAME:-}" != "bookworm" && "${VERSION_CODENAME:-}" != "trixie" ]]; then
+        log_error "Docker 자동 설치 대상은 Debian / Raspberry Pi OS 12·13 (bookworm·trixie), arm64입니다."
+        return 1
+    fi
+    if [[ ! -d /run/systemd/system ]]; then
+        log_error "systemd로 부팅한 Raspberry Pi OS에서 실행하세요."
+        return 1
+    fi
+
+    local package
+    local conflicts=()
+    for package in docker.io docker-compose docker-doc docker-buildx podman-docker containerd runc; do
+        if package_installed "$package"; then
+            conflicts+=("$package")
+        fi
+    done
+    if (( ${#conflicts[@]} > 0 )); then
+        log_error "Docker 공식 패키지와 충돌하는 패키지: ${conflicts[*]}"
+        log_error "기존 컨테이너와 의존 서비스를 확인한 뒤 충돌 패키지를 수동 정리하고 --docker를 다시 실행하세요."
+        return 1
+    fi
+
+    local packages=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin)
+    local missing=()
+    for package in "${packages[@]}"; do
+        if ! package_installed "$package"; then
+            missing+=("$package")
+        fi
+    done
+
+    if (( ${#missing[@]} == 0 )); then
+        log_info "공식 Docker 패키지가 모두 설치되어 있어 기존 버전을 사용합니다."
+    else
+        sudo apt-get update -y
+        sudo apt-get install -y ca-certificates curl
+
+        # 기존 공식 저장소(.list / .sources)가 있으면 중복 등록하지 않습니다.
+        if grep -qsE '^[[:space:]]*(deb[[:space:]]|URIs:).*https://download\.docker\.com/linux/debian' \
+            /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; then
+            log_info "기존 Docker 공식 APT 저장소 설정을 사용합니다."
+        else
+            if [[ -e /etc/apt/sources.list.d/docker.sources ]]; then
+                log_error "/etc/apt/sources.list.d/docker.sources의 기존 설정을 확인하세요. 자동으로 덮어쓰지 않습니다."
+                return 1
+            fi
+            sudo install -m 0755 -d /etc/apt/keyrings
+            sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+            sudo chmod a+r /etc/apt/keyrings/docker.asc
+            sudo tee /etc/apt/sources.list.d/docker.sources >/dev/null <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: ${VERSION_CODENAME}
+Components: stable
+Architectures: ${docker_arch}
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+        fi
+        sudo apt-get update -y
+        # 누락된 패키지만 설치하여 기존 Engine의 불필요한 업그레이드를 피합니다.
+        sudo apt-get install -y --no-remove "${missing[@]}"
+    fi
+
+    sudo systemctl enable --now docker.service containerd.service
+    local docker_user="${SUDO_USER:-$(id -un)}"
+    if ! getent group docker >/dev/null; then
+        sudo groupadd docker
+    fi
+    if [[ "$docker_user" != "root" ]]; then
+        sudo usermod -aG docker "$docker_user"
+        log_warn "docker 그룹은 root 수준 권한을 제공합니다. ${docker_user} 사용자는 로그아웃 후 재접속하세요."
+    fi
+
+    # 현재 세션에는 새 그룹이 반영되지 않으므로 설치 직후 확인은 sudo로 수행합니다.
+    verify_docker_installation sudo
+    log_success "Docker 설치 완료. 재접속 후 'docker run --rm hello-world'로 컨테이너 실행을 확인하세요."
+}
+
+verify_docker_installation() {
+    local docker_cmd=(docker --host unix:///var/run/docker.sock)
+    if [[ "${1:-}" == "sudo" ]]; then
+        docker_cmd=(sudo "${docker_cmd[@]}")
+    fi
+    if ! command -v docker >/dev/null 2>&1; then
+        log_error "Docker가 없습니다. --docker로 설치하세요."
+        return 1
+    fi
+    "${docker_cmd[@]}" --version || return 1
+    "${docker_cmd[@]}" compose version || return 1
+    "${docker_cmd[@]}" buildx version || return 1
+    if ! systemctl is-active --quiet docker.service; then
+        log_error "Docker 서비스가 실행 중이 아닙니다. sudo systemctl start docker를 확인하세요."
+        return 1
+    fi
+    local docker_capabilities
+    if ! docker_capabilities=$("${docker_cmd[@]}" info --format 'memory={{.MemoryLimit}} swap={{.SwapLimit}}'); then
+        log_error "로컬 Docker 데몬에 접근할 수 없습니다. 재로그인 후 권한과 docker 서비스 상태를 확인하세요."
+        return 1
+    fi
+    log_success "Docker 데몬 연결 정상: ${docker_capabilities}"
+    if [[ "$docker_capabilities" == *"memory=false"* ]]; then
+        log_warn "커널이 Docker 메모리 제한을 지원하지 않습니다. Compose의 mem_limit이 적용되지 않을 수 있습니다."
+        log_warn "가이드의 cgroup 점검 절차를 확인하세요. 부팅 설정 변경이나 재부팅은 자동 수행하지 않습니다."
+    fi
+    if [[ "$docker_capabilities" == *"swap=false"* ]]; then
+        log_warn "커널이 컨테이너 swap 제한을 지원하지 않습니다."
+    fi
+}
+
+# ------------------------------------------------------------------------------
 # 2. llama.cpp 소스 빌드 및 전역 설치
 # ------------------------------------------------------------------------------
 build_llama_cpp() {
-    log_info "2/4. llama.cpp 빌드 및 설치 시작..."
+    log_info "llama.cpp 빌드 및 설치 시작..."
 
     if [ -d "$LLAMA_SRC_DIR" ]; then
         log_info "기존 llama.cpp 저장소 업데이트 ($LLAMA_SRC_DIR)..."
@@ -158,7 +284,7 @@ download_models() {
     local QWEN3_4B_URL="https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf"
 
     if [[ "$target_model" == "qwen3b" || "$target_model" == "all" ]]; then
-        log_info "3/4. Qwen 2.5 3B Instruct 다운로드 중 (~2.0 GB)..."
+        log_info "Qwen 2.5 3B Instruct 다운로드 중 (~2.0 GB)..."
         if [ -f "${MODELS_DIR}/${QWEN3B_FILE}" ]; then
             log_success "${QWEN3B_FILE} 이미 존재함. 다운로드를 건너뜁니다."
         else
@@ -168,7 +294,7 @@ download_models() {
     fi
 
     if [[ "$target_model" == "qwen3_4b" || "$target_model" == "all" ]]; then
-        log_info "3/4. Qwen 3 4B 다운로드 중 (~2.4 GB)..."
+        log_info "Qwen 3 4B 다운로드 중 (~2.4 GB)..."
         if [ -f "${MODELS_DIR}/${QWEN3_4B_FILE}" ]; then
             log_success "${QWEN3_4B_FILE} 이미 존재함. 다운로드를 건너뜁니다."
         else
@@ -182,7 +308,7 @@ download_models() {
 # 4. 실행 헬퍼 스크립트 배포
 # ------------------------------------------------------------------------------
 setup_helper_scripts() {
-    log_info "4/4. 실행 헬퍼 스크립트 생성 (${SCRIPTS_DIR})..."
+    log_info "실행 헬퍼 스크립트 생성 (${SCRIPTS_DIR})..."
     mkdir -p "$SCRIPTS_DIR"
 
     # 1) Qwen 2.5 3B CLI 대화 실행기
@@ -288,7 +414,11 @@ verify_installation() {
     st-info --probe 2>/dev/null || echo "  (연결된 ST-LINK 없음 또는 권한 필요)"
 
     echo ""
-    log_success "검증 완료! 필요 시 1회 재로그인('exit' 후 재접속)하여 그룹 권한을 갱신하세요."
+    echo "▶ 5. Docker Engine / Compose / Buildx 및 리소스 제한 지원:"
+    verify_docker_installation || log_warn "Docker 점검 실패. 위 오류를 해결한 후 --verify를 다시 실행하세요."
+
+    echo ""
+    log_info "점검 종료. 위 오류·경고를 확인하고, 그룹 권한 변경 후에는 재로그인하세요."
 }
 
 # ------------------------------------------------------------------------------
@@ -298,7 +428,8 @@ usage() {
     echo "사용법: $0 [옵션]"
     echo ""
     echo "옵션:"
-    echo "  --all              전체 설치 (도구 + llama.cpp + Qwen 2.5 3B 모델 + 스크립트 + 검증)"
+    echo "  --all              전체 설치 (Docker + 도구 + llama.cpp + Qwen 2.5 3B 모델 + 스크립트 + 검증)"
+    echo "  --docker           Docker Engine + Compose / Buildx + docker 그룹 설정"
     echo "  --tools            임베디드 툴체인만 설치 (OpenOCD, GDB, stlink, pyocd, udev)"
     echo "  --llama            llama.cpp만 빌드 및 전역 설치 (/usr/local/bin)"
     echo "  --model [TYPE]     모델 다운로드 ('qwen3b'(기본값), 'qwen3_4b', 'all')"
@@ -308,14 +439,19 @@ usage() {
     exit 0
 }
 
-case "$1" in
+case "${1:-}" in
     --all)
         check_prerequisites
+        install_docker
         install_system_and_embedded_tools
         build_llama_cpp
         download_models "qwen3b"
         setup_helper_scripts
         verify_installation
+        ;;
+    --docker)
+        check_prerequisites
+        install_docker
         ;;
     --tools)
         check_prerequisites
