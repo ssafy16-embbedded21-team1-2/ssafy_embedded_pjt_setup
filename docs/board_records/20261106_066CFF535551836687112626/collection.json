@@ -1,0 +1,569 @@
+{
+  "started_at": "2026-11-06T10:33:49.723961+09:00",
+  "hostname": "pi32",
+  "architecture": "aarch64",
+  "os_release": "PRETTY_NAME=\"Debian GNU/Linux 13 (trixie)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"13\"\nVERSION=\"13 (trixie)\"\nVERSION_CODENAME=trixie\nDEBIAN_VERSION_FULL=13.7\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n",
+  "python": "3.13.5",
+  "python_executable": "/usr/bin/python3",
+  "pyocd_version": "0.46.0",
+  "probe_uid": "066CFF535551836687112626",
+  "options": {
+    "target_override": "stm32f103rb",
+    "connect_mode": "attach",
+    "frequency": 1000000,
+    "auto_unlock": false,
+    "resume_on_disconnect": false,
+    "config_file": null,
+    "no_config": true,
+    "load_svd": true
+  },
+  "pack_file": "/home/pi/.local/share/cmsis-pack-manager/Keil/STM32F1xx_DFP/2.4.1.pack",
+  "pack_sha256": "807ea15da5b172b916bbc47b2b87f1e621240ad208d38e82a417a2ef8191e9d1",
+  "commands": [
+    {
+      "argv": [
+        "id"
+      ],
+      "exit_code": 0,
+      "stdout": "uid=1000(pi) gid=1000(pi) groups=1000(pi),4(adm),20(dialout),24(cdrom),27(sudo),29(audio),44(video),46(plugdev),60(games),100(users),102(netdev),108(lpadmin),984(docker),986(gpio),988(i2c),989(spi),992(render),996(input)\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "pyocd",
+        "list"
+      ],
+      "exit_code": 0,
+      "stdout": "  #   Probe/Board     Unique ID                  Target         \n----------------------------------------------------------------\n  0   STM32 STLink    066CFF535551836687112626   ✔︎ stm32f103rb  \n      NUCLEO-F103RB                                             \n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "pyocd",
+        "pack",
+        "show"
+      ],
+      "exit_code": 0,
+      "stdout": "  Pack                 Version  \n--------------------------------\n  Keil.STM32F1xx_DFP   2.4.1    \n  Keil.STM32F4xx_DFP   3.1.1    \n  Keil.STM32G4xx_DFP   2.2.0    \n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "st-info",
+        "--version"
+      ],
+      "exit_code": 0,
+      "stdout": "v1.8.0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "st-info",
+        "--probe",
+        "--hot-plug"
+      ],
+      "exit_code": 0,
+      "stdout": "Found 1 stlink programmers\n  version:    V2J46S32\n  serial:     066CFF535551836687112626\n  flash:      131072 (pagesize: 1024)\n  sram:       20480\n  chipid:     0x410\n  dev-type:   STM32F1xx_MD\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "lsusb"
+      ],
+      "exit_code": 0,
+      "stdout": "Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub\nBus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub\nBus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub\nBus 003 Device 002: ID 0483:374b STMicroelectronics ST-LINK/V2.1\nBus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "lsusb",
+        "-t"
+      ],
+      "exit_code": 0,
+      "stdout": "/:  Bus 001.Port 001: Dev 001, Class=root_hub, Driver=xhci-hcd/2p, 480M\n/:  Bus 002.Port 001: Dev 001, Class=root_hub, Driver=xhci-hcd/1p, 5000M\n/:  Bus 003.Port 001: Dev 001, Class=root_hub, Driver=xhci-hcd/2p, 480M\n    |__ Port 002: Dev 002, If 0, Class=Vendor Specific Class, Driver=[none], 12M\n    |__ Port 002: Dev 002, If 1, Class=Mass Storage, Driver=usb-storage, 12M\n    |__ Port 002: Dev 002, If 2, Class=Communications, Driver=cdc_acm, 12M\n    |__ Port 002: Dev 002, If 3, Class=CDC Data, Driver=cdc_acm, 12M\n/:  Bus 004.Port 001: Dev 001, Class=root_hub, Driver=xhci-hcd/1p, 5000M\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ls",
+        "-l",
+        "/dev/serial/by-id/"
+      ],
+      "exit_code": 0,
+      "stdout": "total 0\nlrwxrwxrwx 1 root root 13 Nov  6 10:26 usb-STMicroelectronics_STM32_STLink_066CFF535551836687112626-if02 -> ../../ttyACM0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "lsblk",
+        "-o",
+        "NAME,TRAN,VENDOR,MODEL,SERIAL,LABEL,MOUNTPOINTS"
+      ],
+      "exit_code": 0,
+      "stdout": "NAME        TRAN VENDOR   MODEL           SERIAL                   LABEL           MOUNTPOINTS\nloop0                                                              origin:rpi-swap \nsda         usb  MBED     microcontroller 066CFF535551836687112626 NODE_F103RB     /media/pi/NODE_F103RB\nmmcblk0     mmc                           0xfed77ec9                               \n├─mmcblk0p1 mmc                                                    bootfs          /boot/firmware\n└─mmcblk0p2 mmc                                                    rootfs          /\nzram0                                                              zram0           [SWAP]\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "pgrep",
+        "-af",
+        "openocd|ST-LINK_gdbserver|pyocd.*gdbserver"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "board_details": "Version: V2J46M32\nBuild:   Mar 11 2025 14:03:24\n    ",
+  "registers": [
+    {
+      "name": "CPUID",
+      "address": "0xE000ED00",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.170981+09:00",
+      "raw": "0x411FC231"
+    },
+    {
+      "name": "DBGMCU_IDCODE",
+      "address": "0xE0042000",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.171792+09:00",
+      "raw": "0x20036410"
+    },
+    {
+      "name": "FLASH_SIZE_KIB",
+      "address": "0x1FFFF7E0",
+      "width_bits": 16,
+      "read_at": "2026-11-06T10:33:53.172790+09:00",
+      "raw": "0x0080"
+    },
+    {
+      "name": "UID_WORD0",
+      "address": "0x1FFFF7E8",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.173794+09:00",
+      "raw": "0x066BFF50"
+    },
+    {
+      "name": "UID_WORD1",
+      "address": "0x1FFFF7EC",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.174789+09:00",
+      "raw": "0x52498366"
+    },
+    {
+      "name": "UID_WORD2",
+      "address": "0x1FFFF7F0",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.175788+09:00",
+      "raw": "0x87091724"
+    },
+    {
+      "name": "INITIAL_SP",
+      "address": "0x08000000",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.176788+09:00",
+      "raw": "0x20005000"
+    },
+    {
+      "name": "RESET_VECTOR",
+      "address": "0x08000004",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.177791+09:00",
+      "raw": "0x080007C5"
+    },
+    {
+      "name": "RCC_CR",
+      "address": "0x40021000",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.178789+09:00",
+      "raw": "0x03076083"
+    },
+    {
+      "name": "RCC_CFGR",
+      "address": "0x40021004",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.179788+09:00",
+      "raw": "0x001D040A"
+    },
+    {
+      "name": "RCC_APB2ENR",
+      "address": "0x40021018",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.180796+09:00",
+      "raw": "0x0000083D"
+    },
+    {
+      "name": "RCC_APB1ENR",
+      "address": "0x4002101C",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.181790+09:00",
+      "raw": "0x10020000"
+    },
+    {
+      "name": "AFIO_MAPR",
+      "address": "0x40010004",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.182789+09:00",
+      "raw": "0x02000000"
+    },
+    {
+      "name": "GPIOA_CRL",
+      "address": "0x40010800",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.183788+09:00",
+      "raw": "0x4424AA42"
+    },
+    {
+      "name": "GPIOA_CRH",
+      "address": "0x40010804",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.184789+09:00",
+      "raw": "0x8882244A"
+    },
+    {
+      "name": "GPIOB_CRL",
+      "address": "0x40010C00",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.185791+09:00",
+      "raw": "0x44484444"
+    },
+    {
+      "name": "GPIOB_CRH",
+      "address": "0x40010C04",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.186789+09:00",
+      "raw": "0x44444422"
+    },
+    {
+      "name": "USART2_BRR",
+      "address": "0x40004408",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.187790+09:00",
+      "raw": "0x00000138"
+    },
+    {
+      "name": "USART2_CR1",
+      "address": "0x4000440C",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.188789+09:00",
+      "raw": "0x0000200C"
+    },
+    {
+      "name": "USART2_CR2",
+      "address": "0x40004410",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.189791+09:00",
+      "raw": "0x00000000"
+    },
+    {
+      "name": "USART2_CR3",
+      "address": "0x40004414",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.190790+09:00",
+      "raw": "0x00000000"
+    },
+    {
+      "name": "CAN_MCR",
+      "address": "0x40006400",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.191790+09:00",
+      "raw": "0x00010002"
+    },
+    {
+      "name": "CAN_MSR",
+      "address": "0x40006404",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.192790+09:00",
+      "raw": "0x00000C0A"
+    },
+    {
+      "name": "CAN_ESR",
+      "address": "0x40006418",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.193791+09:00",
+      "raw": "0x00000000"
+    },
+    {
+      "name": "CAN_BTR",
+      "address": "0x4000641C",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.194790+09:00",
+      "raw": "0x01230000"
+    },
+    {
+      "name": "SCB_CFSR",
+      "address": "0xE000ED28",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.195790+09:00",
+      "raw": "0x00000000"
+    },
+    {
+      "name": "SCB_HFSR",
+      "address": "0xE000ED2C",
+      "width_bits": 32,
+      "read_at": "2026-11-06T10:33:53.196790+09:00",
+      "raw": "0x00000000"
+    }
+  ],
+  "connected_at": "2026-11-06T10:33:53.170022+09:00",
+  "part_number": "STM32F103RB",
+  "state_before": "RUNNING",
+  "core_type": "3107",
+  "memory_map": [
+    {
+      "name": "IROM1",
+      "type": "FLASH",
+      "start": "0x08000000",
+      "length": 131072,
+      "access": "rx",
+      "blocksize": 1024,
+      "page_size": 1024,
+      "flm": "<pyocd.target.pack.flash_algo.PackFlashAlgo object at 0x7fff9c7f57f0>",
+      "flash_algorithm_loaded": true
+    },
+    {
+      "name": "IRAM1",
+      "type": "RAM",
+      "start": "0x20000000",
+      "length": 20480,
+      "access": "rwx",
+      "blocksize": null,
+      "page_size": null,
+      "flm": "None",
+      "flash_algorithm_loaded": false
+    }
+  ],
+  "svd": {
+    "name": "STM32F103xx",
+    "version": "1.3",
+    "peripheral_count": 53,
+    "peripherals": [
+      {
+        "name": "FSMC",
+        "address": "0xA0000000"
+      },
+      {
+        "name": "PWR",
+        "address": "0x40007000"
+      },
+      {
+        "name": "RCC",
+        "address": "0x40021000"
+      },
+      {
+        "name": "GPIOA",
+        "address": "0x40010800"
+      },
+      {
+        "name": "GPIOB",
+        "address": "0x40010C00"
+      },
+      {
+        "name": "GPIOC",
+        "address": "0x40011000"
+      },
+      {
+        "name": "GPIOD",
+        "address": "0x40011400"
+      },
+      {
+        "name": "GPIOE",
+        "address": "0x40011800"
+      },
+      {
+        "name": "GPIOF",
+        "address": "0x40011C00"
+      },
+      {
+        "name": "GPIOG",
+        "address": "0x40012000"
+      },
+      {
+        "name": "AFIO",
+        "address": "0x40010000"
+      },
+      {
+        "name": "EXTI",
+        "address": "0x40010400"
+      },
+      {
+        "name": "DMA1",
+        "address": "0x40020000"
+      },
+      {
+        "name": "DMA2",
+        "address": "0x40020400"
+      },
+      {
+        "name": "SDIO",
+        "address": "0x40018000"
+      },
+      {
+        "name": "RTC",
+        "address": "0x40002800"
+      },
+      {
+        "name": "BKP",
+        "address": "0x40006C04"
+      },
+      {
+        "name": "IWDG",
+        "address": "0x40003000"
+      },
+      {
+        "name": "WWDG",
+        "address": "0x40002C00"
+      },
+      {
+        "name": "TIM1",
+        "address": "0x40012C00"
+      },
+      {
+        "name": "TIM8",
+        "address": "0x40013400"
+      },
+      {
+        "name": "TIM2",
+        "address": "0x40000000"
+      },
+      {
+        "name": "TIM3",
+        "address": "0x40000400"
+      },
+      {
+        "name": "TIM4",
+        "address": "0x40000800"
+      },
+      {
+        "name": "TIM5",
+        "address": "0x40000C00"
+      },
+      {
+        "name": "TIM9",
+        "address": "0x40014C00"
+      },
+      {
+        "name": "TIM12",
+        "address": "0x40001800"
+      },
+      {
+        "name": "TIM10",
+        "address": "0x40015000"
+      },
+      {
+        "name": "TIM11",
+        "address": "0x40015400"
+      },
+      {
+        "name": "TIM13",
+        "address": "0x40001C00"
+      },
+      {
+        "name": "TIM14",
+        "address": "0x40002000"
+      },
+      {
+        "name": "TIM6",
+        "address": "0x40001000"
+      },
+      {
+        "name": "TIM7",
+        "address": "0x40001400"
+      },
+      {
+        "name": "I2C1",
+        "address": "0x40005400"
+      },
+      {
+        "name": "I2C2",
+        "address": "0x40005800"
+      },
+      {
+        "name": "SPI1",
+        "address": "0x40013000"
+      },
+      {
+        "name": "SPI2",
+        "address": "0x40003800"
+      },
+      {
+        "name": "SPI3",
+        "address": "0x40003C00"
+      },
+      {
+        "name": "USART1",
+        "address": "0x40013800"
+      },
+      {
+        "name": "USART2",
+        "address": "0x40004400"
+      },
+      {
+        "name": "USART3",
+        "address": "0x40004800"
+      },
+      {
+        "name": "ADC1",
+        "address": "0x40012400"
+      },
+      {
+        "name": "ADC2",
+        "address": "0x40012800"
+      },
+      {
+        "name": "ADC3",
+        "address": "0x40013C00"
+      },
+      {
+        "name": "CAN",
+        "address": "0x40006400"
+      },
+      {
+        "name": "DAC",
+        "address": "0x40007400"
+      },
+      {
+        "name": "DBG",
+        "address": "0xE0042000"
+      },
+      {
+        "name": "UART4",
+        "address": "0x40004C00"
+      },
+      {
+        "name": "UART5",
+        "address": "0x40005000"
+      },
+      {
+        "name": "CRC",
+        "address": "0x40023000"
+      },
+      {
+        "name": "FLASH",
+        "address": "0x40022000"
+      },
+      {
+        "name": "NVIC",
+        "address": "0xE000E000"
+      },
+      {
+        "name": "USB",
+        "address": "0x40005C00"
+      }
+    ]
+  },
+  "state_after": "RUNNING",
+  "before_disconnect_at": "2026-11-06T10:33:53.198792+09:00",
+  "finished_at": "2026-11-06T10:33:53.199391+09:00",
+  "debug_servers_after": {
+    "argv": [
+      "pgrep",
+      "-af",
+      "openocd|ST-LINK_gdbserver|pyocd.*gdbserver"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": ""
+  }
+}

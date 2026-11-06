@@ -1,0 +1,76 @@
+{
+  "pack": "/home/pi/.local/share/cmsis-pack-manager/Keil/STM32F1xx_DFP/2.4.1.pack",
+  "pdsc_file": "Keil.STM32F1xx_DFP.pdsc",
+  "inherited_device_definitions": [
+    {
+      "tag": "processor",
+      "attributes": {
+        "Dcore": "Cortex-M3",
+        "DcoreVersion": "r1p1"
+      }
+    },
+    {
+      "tag": "processor",
+      "attributes": {
+        "Dfpu": "0",
+        "Dmpu": "0",
+        "Dendian": "Little-endian",
+        "Dclock": "72000000"
+      }
+    },
+    {
+      "tag": "debug",
+      "attributes": {
+        "svd": "SVD/STM32F103xx.svd"
+      }
+    },
+    {
+      "tag": "memory",
+      "attributes": {
+        "id": "IROM1",
+        "start": "0x08000000",
+        "size": "0x00020000",
+        "startup": "1",
+        "default": "1"
+      }
+    },
+    {
+      "tag": "memory",
+      "attributes": {
+        "id": "IRAM1",
+        "start": "0x20000000",
+        "size": "0x00005000",
+        "init": "0",
+        "default": "1"
+      }
+    },
+    {
+      "tag": "algorithm",
+      "attributes": {
+        "name": "Flash/STM32F10x_128.FLM",
+        "start": "0x08000000",
+        "size": "0x00020000",
+        "default": "1"
+      }
+    },
+    {
+      "tag": "algorithm",
+      "attributes": {
+        "name": "Flash/STM32F10x_OPT.FLM",
+        "start": "0x1FFFF800",
+        "size": "0x00000010",
+        "default": "0"
+      }
+    }
+  ],
+  "files": [
+    {
+      "path": "Flash/STM32F10x_128.FLM",
+      "sha256": "27642ba08e5dc56c7c90573f808ece013efabc68776cb8057ebafdfa60a59648"
+    },
+    {
+      "path": "SVD/STM32F103xx.svd",
+      "sha256": "1d92b65aaf397a18a599fb6a840812015ad379cdcc0cc3687f673f63e7445367"
+    }
+  ]
+}
