@@ -1,10 +1,12 @@
-# [아키텍처/설계 v3.1] 차량용 CAN FD / Classic CAN 도메인 아키텍처 및 분산 ECU 진단 벤치
+# [아키텍처/설계 v3.2] 차량용 CAN FD / Classic CAN 도메인 아키텍처 및 분산 ECU 진단 벤치
 
-> **버전**: v3.1 (2026-11-03 기술 검토 반영)
+> **버전**: v3.2 (2026-11-10 제품 운용 진단 및 SWD 선택 경로 반영)
 >
 > **핵심 업그레이드**: **NUCLEO-G474RE (Cortex-M4F @ 170MHz)** 도입을 통한 **"차량 도메인 컨트롤러(DCU) & FOC 트랙션 모터 인버터"** 구축 및 **CAN FD ↔ Classic CAN 하이브리드 네트워크** 구성.
 >
 > **문서 상태**: 구현 전 설계. MCU 기능과 프로젝트 목표를 구분하며, 통신 속도·실시간 성능·복구 시간은 실측 전까지 보장하지 않는다. 바이트 배치·주기·진단 주소 등 미확정 항목은 5-3절에서 관리한다.
+>
+> **진단 원칙**: CAN을 통한 상태·DTC·부팅/크래시 기록 조회가 제품 운용의 주 경로다. SWD는 접근 허용된 개발·벤치의 선택 수단이며, 접근 불가 상황에서도 분석 흐름이 완료되어야 한다.
 
 ---
 
@@ -12,13 +14,15 @@
 
 본 설계는 **상위 CAN FD 백본과 하위 Classic CAN 필드버스를 연결하는 도메인 게이트웨이**를 실습 벤치로 구현합니다. 특정 완성차 플랫폼의 실제 네트워크·진단 규격을 재현하거나 차량용 인증을 충족한다는 의미는 아닙니다. FOC 구동에는 Nucleo 보드 외에 모터 전력단, 게이트 드라이버, 전류·위치 계측 및 보호 회로가 필요합니다.
 
+진단 기능은 ECU 내부 고장 검출·기록 → CAN/ISO-TP/UDS 조회 → RPi의 규약 해석·증거 보관 → SLM 설명으로 구성한다. SWD를 차단한 제품을 진단하기 위해 보호를 해제하거나 코어를 정지해야 한다는 전제를 두지 않는다. CAN FD 백본 확보 전에는 별도 합의한 Classic CAN 벤치에서도 같은 진단 기록 개념을 검증할 수 있으며, FD 64B 집계 프레임을 Classic 8B로 그대로 전송하지 않는다.
+
 ```mermaid
 flowchart TB
     subgraph Gateway["🖥️ 차량 중앙 게이트웨이 & AI 진단 워크스테이션 (Raspberry Pi 5)"]
         TCU["차량 텔레매틱스 / 진단 호스트"]
         SOCKETCAN["Linux SocketCAN (can0 인터페이스)"]
         AI_AGENT["진단 Agent + On-Device SLM (Qwen 2.5 3B)<br/>Tool: DBC 디코딩 / ISO-TP / UDS<br/>SLM: 근거 기반 분석·설명"]
-        SWD_DEBUG["SWD 하드웨어 디버거 (OpenOCD)<br/>- 4x USB 백채널 (실리콘 레지스터 덤프용)"]
+        SWD_DEBUG["선택 SWD 하드웨어 디버거<br/>개발·벤치 접근 허용 시 레지스터 대조"]
     end
 
     subgraph CAN_FD_BACKBONE["CAN FD 백본 (중재 500 kbps 제안 / 데이터 2 Mbps 초기 목표, 최대 64B)"]
@@ -30,6 +34,8 @@ flowchart TB
         G4_CORE["Cortex-M4F @ 170 MHz<br/>- CORDIC: FOC 삼각함수 연산<br/>- Dual-Bank Flash 512KB: 다운로드 후 재부팅 적용<br/>- CMSIS-DSP: FFT / FMAC: 필터 전처리 후보"]
         FDCAN_CH1["FDCAN1 (백본 업링크)"]
         FDCAN_CH2["FDCAN2 (필드버스 다운링크 게이트웨이)"]
+        DIAG_RECORD["ECU 공통 진단 기록<br/>DTC / 스냅샷 / 부팅·크래시 / Build ID"]
+        DIAG_RECORD <--> G4_CORE
     end
 
     subgraph CAN_SUB_BUS["🚗 차량 필드버스 CAN 버스 (Classic CAN 2.0B, 500 kbps, 8 Byte)"]
@@ -53,23 +59,23 @@ flowchart TB
     CAN_SUB_BUS <===> ECU3
     CAN_SUB_BUS <===> ECU4
 
-    SWD_DEBUG -.->|"SWD (target/stm32g4x.cfg)"| MAIN_DCU
-    SWD_DEBUG -.->|"SWD (target/stm32f1x.cfg)"| ECU2
-    SWD_DEBUG -.->|"SWD (target/stm32f1x.cfg)"| ECU3
-    SWD_DEBUG -.->|"SWD (target/stm32f1x.cfg)"| ECU4
+    SWD_DEBUG -.->|"개발·벤치 전용 SWD (G4)"| MAIN_DCU
+    SWD_DEBUG -.->|"개발·벤치 전용 SWD (F1)"| ECU2
+    SWD_DEBUG -.->|"개발·벤치 전용 SWD (F1)"| ECU3
+    SWD_DEBUG -.->|"개발·벤치 전용 SWD (F1)"| ECU4
 ```
 
 ---
 
 ## 2. 하드웨어 스펙 및 역할 분담 (이종 멀티 ECU)
 
-| 제어기 명칭           | 하드웨어 보드      | 코어 / 클록                                                                       | 통신 프로토콜                        | 담당 차량 도메인 및 특화 기능                                                                                                                                                  |
+| 제어기 명칭 | 하드웨어 보드 | 코어 / 클록 | 통신 프로토콜 | 담당 차량 도메인 및 특화 기능 |
 | :-------------------- | :----------------- | :-------------------------------------------------------------------------------- | :----------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **중앙 진단기**       | **Raspberry Pi 5** | Quad A76 @ 2.4GHz                                                                 | **CAN FD / USB**                     | • 전체 차량 E/E 모니터링 및 SocketCAN<br/>• On-Device SLM (Qwen 2.5 3B) 고장 진단<br/>• UDS 테스터 및 SWD 크래시 분석기                                                        |
-| **Main DCU / VCU** ⭐ | **NUCLEO-G474RE**  | **Cortex-M4F @ 최대 170MHz** (512KB Flash, 128KB SRAM: 96KB SRAM + 32KB CCM SRAM) | **FDCAN1 (FD)<br/>FDCAN2 (Classic)** | • CORDIC 기반 FOC 연산 및 외부 전력단 제어<br/>• CAN FD ↔ Classic CAN 게이트웨이<br/>• Dual-Bank 다운로드·재부팅 적용·부트로더 복구<br/>• CMSIS-DSP 진동 FFT 및 이상 징후 분석 |
-| **Cell 2: BMS ECU**   | NUCLEO-F103RB      | Cortex-M3 @ 72MHz                                                                 | Classic CAN (500k)                   | • 배터리 셀 팩 전압, 충방전 전류 계측<br/>• 온도/진동 임계치 초과 시 DTC 발행                                                                                                  |
-| **Cell 3: 바디 BCM**  | NUCLEO-F103RB      | Cortex-M3 @ 72MHz                                                                 | Classic CAN (500k)                   | • RFID 스마트키 인증 (Immobilizer)<br/>• 도어 개폐, 비상등, 릴레이 안전 제어                                                                                                   |
-| **Cell 4: 클러스터**  | NUCLEO-F103RB      | Cortex-M3 @ 72MHz                                                                 | Classic CAN (500k)                   | • 차량 계기판(FND/OLED) 속도/RPM 표출<br/>• DTC 체크 엔진 경고등 점등                                                                                                          |
+| **중앙 진단기** | **Raspberry Pi 5** | Quad A76 @ 2.4GHz | **CAN FD / 선택 벤치 USB** | SocketCAN/UDS 상태·DTC·부팅/크래시 기록 수집, Build ID별 심벌 분석, SLM 근거 설명. SWD는 선택 개발 경로 |
+| **Main DCU / VCU** ⭐ | **NUCLEO-G474RE** | **Cortex-M4F @ 최대 170MHz** (512KB Flash, 128KB SRAM: 96KB SRAM + 32KB CCM SRAM) | **FDCAN1 (FD)<br/>FDCAN2 (Classic)** | • CORDIC 기반 FOC 연산 및 외부 전력단 제어<br/>• CAN FD ↔ Classic CAN 게이트웨이<br/>• Dual-Bank 다운로드·재부팅 적용·부트로더 복구<br/>• CMSIS-DSP 진동 FFT 및 이상 징후 분석 |
+| **Cell 2: BMS ECU** | NUCLEO-F103RB | Cortex-M3 @ 72MHz | Classic CAN (500k) | • 배터리 셀 팩 전압, 충방전 전류 계측<br/>• 온도/진동 임계치 초과 시 DTC 발행 |
+| **Cell 3: 바디 BCM** | NUCLEO-F103RB | Cortex-M3 @ 72MHz | Classic CAN (500k) | • RFID 스마트키 인증 (Immobilizer)<br/>• 도어 개폐, 비상등, 릴레이 안전 제어 |
+| **Cell 4: 클러스터** | NUCLEO-F103RB | Cortex-M3 @ 72MHz | Classic CAN (500k) | • 차량 계기판(FND/OLED) 속도/RPM 표출<br/>• DTC 체크 엔진 경고등 점등 |
 
 ---
 
@@ -203,22 +209,90 @@ Cell 2~4의 `0x200/0x300/0x400`은 필드버스 메시지입니다. RPi는 기�
 
 회의 진행과 항목별 결정 기록에는 [CAN 통신 규약 합의 회의 템플릿](CAN_통신규약_합의_회의_템플릿.md)을 사용합니다. BMS 메시지·집계 영역부터 합의하고 확정 범위만 구현 산출물에 반영합니다.
 
-| 항목        | 확정할 내용                                                                      |
+| 항목 | 확정할 내용 |
 | :---------- | :------------------------------------------------------------------------------- |
-| 공통 형식   | 프로토콜 버전, 11/29비트 ID, Classic/FD 구분, BRS, 바이트 순서, signed 표현      |
-| 신호 배치   | 시작 비트·길이·배율·오프셋·단위·유효 범위·측정 불가 값·예약 비트                 |
-| 시간·신뢰도 | 주기·타임아웃·최초 수신 전 UNKNOWN·만료 후 STALE·Sequence·재부팅 구분            |
-| 집계 정책   | 셀별 원본 데이터 수신 시각·유효 상태·오래된 데이터 처리·갱신 방식                |
-| 진단 경로   | ECU별 요청/응답 ID, G474의 중계/대리 응답 여부, ISO-TP 및 UDS 응답 시간·NRC 처리 |
-| DTC         | 전송용 코드·표시 이름·상태 비트·발생/해제 조건·snapshot·영속 보존 정책           |
-| 제어·OTA    | 허용 명령·파라미터·ACK·중복/재시도·승인·실패 시 동작·이미지 검증                 |
-| 검증 자료   | DBC·진단 설정·정답 프레임을 함께 버전 관리하고 C/Python 양쪽에서 교차 검증       |
+| 공통 형식 | 프로토콜 버전, 11/29비트 ID, Classic/FD 구분, BRS, 바이트 순서, signed 표현 |
+| 신호 배치 | 시작 비트·길이·배율·오프셋·단위·유효 범위·측정 불가 값·예약 비트 |
+| 시간·신뢰도 | 주기·타임아웃·최초 수신 전 UNKNOWN·만료 후 STALE·Sequence·재부팅 구분 |
+| 집계 정책 | 셀별 원본 데이터 수신 시각·유효 상태·오래된 데이터 처리·갱신 방식 |
+| 진단 경로 | ECU별 요청/응답 ID, G474의 중계/대리 응답 여부, ISO-TP 및 UDS 응답 시간·NRC 처리 |
+| DTC | 전송용 코드·표시 이름·상태 비트·발생/해제 조건·snapshot·영속 보존 정책 |
+| 제품 진단 기록 | 버전·Build ID·진단 지원 기능·boot ID·리셋 이력·크래시 DID, 크기·유효성·보존·조회 권한 |
+| 제어·OTA | 허용 명령·파라미터·ACK·중복/재시도·승인·실패 시 동작·이미지 검증 |
+| 검증 자료 | DBC·진단 설정·정답 프레임을 함께 버전 관리하고 C/Python 양쪽에서 교차 검증 |
 
 이 문서는 위 항목의 최종 값을 확정하지 않습니다. 합의 전 바이트 배치·주기·시간 제한을 시뮬레이터에 사용한다면 임시 설정으로 표시하고 정식 규약과 구분합니다.
 
 ---
 
-## 6. OpenOCD 진단 벤치 멀티 타깃 제어 가이드
+## 6. SWD 없이 진단하는 제품 운용 설계
+
+이 절은 **구현 요구사항과 인터페이스 제안**이다. AUTOSAR 스택 도입이나 UDS 서버·영속 기록·크래시 수집 구현이 완료됐다는 뜻은 아니다. DEM의 이벤트·고장 당시 환경 기록, DCM의 제한된 진단 서비스라는 책임 분리 개념을 참고한다. [AUTOSAR DEM](https://www.autosar.org/fileadmin/standards/R24-11/CP/AUTOSAR_CP_SWS_DiagnosticEventManager.pdf)
+
+### 6-1. ECU 공통 진단 기능과 기록 항목
+
+Cell 1~4는 도메인 제어 코드와 구분된 `diag_core`를 두고 다음 정보를 제공한다. MCU의 RAM·Flash 예산에 맞춰 최소 요약부터 구현하며 전체 메모리 덤프를 요구하지 않는다.
+
+| 구분 | 기록·제공할 내용 | 원칙 |
+| --- | --- | --- |
+| 장치·펌웨어 식별 | 원본 ECU ID, 펌웨어 버전, 현재 Build ID, 프로토콜/기록 스키마 버전, 지원 기능 | 미구현 기능과 빈 정상 기록 구분 |
+| 실시간 생존·상태 | heartbeat, Sequence, boot ID, 동작 상태, 값·샘플 유효 여부 | boot ID는 재부팅 구분이 가능하도록 생성·보존 방식과 롤오버를 합의. 매 프레임 Flash 기록 금지 |
+| DTC·스냅샷 | 코드·상태·발생 횟수, 고장 당시 센서/전원/명령/통신 상태와 단위 | 발생·해제·갱신·삭제 정책과 현재/과거 고장 구분 |
+| 부팅·리셋 이력 | 부팅 횟수/boot ID, 리셋 원시 플래그와 해석, 마지막 진행 단계 | 초기화 코드가 지우기 전에 리셋 원인 확보. 복수 플래그·미확인 원인도 보존 |
+| 최소 크래시 기록 | record ID, 기록 Build ID, 고장 boot ID·uptime, Fault 종류, stacked PC/LR/xPSR, SP·EXC_RETURN, CFSR/HFSR, 유효한 BFAR/MMFAR, 제한된 스택 영역 | Cortex-M3/M4F 문맥 차이와 프레임/주소 유효성 기록. 모든 필드를 항상 복구할 수 있다고 가정하지 않음 |
+
+워치독은 리셋 전 인터럽트를 항상 제공하지 않는다. 정상 실행 중 마지막 진행 단계·진행 카운터를 갱신하고 다음 부팅의 리셋 원인과 결합한다. 워치독 리셋 사실만으로 특정 함수나 무한루프를 확정하지 않는다.
+
+### 6-2. Fault 처리와 저장·복구
+
+```mermaid
+flowchart LR
+    MON[고장 검출] --> SNAP[DTC·환경 스냅샷 기록]
+    FAULT[Fault·assert 발생] --> MIN[최소 문맥을 제한된 보관 영역에 기록]
+    MIN --> RESET[사전 설계된 안전·리셋 정책]
+    RESET --> BOOT[부팅 시 리셋 원인·기록 유효성 확인]
+    SNAP --> STORE[상한이 있는 진단 기록 저장소]
+    BOOT --> STORE
+    STORE --> DIAG[통신 복귀 후 CAN 진단 응답]
+    DIAG --> HOST[RPi 원본 보관·파싱·빌드별 주소 분석]
+    HOST --> LLM[SLM이 근거·원인 후보·미확인 항목 설명]
+```
+
+- Fault 문맥에서는 일반 통신 스택·동적 할당·블로킹 로그·복잡한 Flash erase/write를 호출하지 않는 최소 경로를 설계한다. 스택 손상·중첩 Fault·워치독·전원 상실 때문에 기록이 실패할 수 있으므로 `record_valid`, 누락 필드와 손상 여부를 표현한다. 안전 출력과 리셋은 LLM 응답이나 로그 전송을 기다리지 않는다.
+- `.noinit` 등 리셋 보존 RAM은 링커·startup 초기화 제외와 리셋 종류별 보존을 검증한다. 전원 차단 보존을 보장하지 않으며 CRC/매직/스키마로 잔존값·부분 기록을 거른다. RAM 기록은 부팅 후 안전한 시점에 비휘발성 저장소로 옮기는 방안을 검토한다.
+- 비휘발성 보존은 별도 Flash 영역/외부 저장소·용량 상한·마모·중복 억제·기록 순서·완료 표식·전원 차단 복구를 설계한다. 설정/부트로더/OTA 슬롯과 영역이 겹치지 않아야 하며 제품 요구에 맞는 보존 범위를 명시한다. CRC는 무결성 검사이며 인증을 대체하지 않는다.
+- 읽기 성공으로 기록을 삭제하지 않는다. 보존 기간·순환 덮어쓰기·용량 초과·삭제 권한은 합의하고, 삭제가 필요하면 읽기와 별도의 승인된 변경 작업으로 둔다.
+
+구현 시 저장 매체와 리셋 보존 특성을 확인한다. [Memfault 크래시 저장 설계 사례](https://docs.memfault.com/docs/mcu/coredumps), [Cortex-M Fault 문맥과 해석 한계](https://interrupt.memfault.com/blog/cortex-m-hardfault-debug)
+
+### 6-3. CAN 조회와 게이트웨이 계약
+
+| 정보 | 조회 경로 제안 | 합의할 항목 |
+| --- | --- | --- |
+| DTC·snapshot·extended data | UDS `0x19`의 지원 서브기능 | 코드·record number·상태·단위·길이 |
+| 식별·Build ID·지원 기능 | UDS `0x22`의 허용된 DID | 프로젝트 정의 DID 번호·스키마·접근 세션 |
+| 부팅/리셋·최소 크래시 요약 | UDS `0x22`의 프로젝트 정의 DID | record ID·원본 Build ID·boot ID·시각·유효성 |
+| 긴 기록 | ISO-TP 전송. 여러 요청이 필요하면 고정한 기록 ID로 분할 조회 | 최대 길이·offset·전체 무결성·요청 기한·재시도·부하 제한 |
+
+DID 번호와 바이트 배치는 미정이며 `0x19`/`0x22`를 지원하려면 ECU 측 진단 서버가 필요하다. 임의 메모리 주소 읽기를 일반 제품 API로 제공하지 않는다. 정보별 허용 목록·세션/권한·필드 마스킹·요청률을 정하고 접근 거부나 미지원은 별도 결과로 반환한다. [udsoncan 진단 서비스 설명](https://udsoncan.readthedocs.io/en/latest/udsoncan/client.html)
+
+게이트웨이는 직접 중계와 캐시 대리 응답을 구분하고 `origin_ecu`, `collected_at`, `record_id`, `capture_boot_id`, `capture_uptime_ms`, `record_build_id`, 스키마·유효성을 보존한다. 현재 `running_build_id`와 기록 당시 Build ID를 혼동하지 않는다. 현재 값의 만료 여부와 보존된 과거 사건의 유효 여부는 별도다. 서로 다른 MCU/부팅의 uptime을 직접 비교하지 않는다. `0x060` 집계 Sequence가 증가해도 하위 ECU의 생존이나 데이터 갱신을 보장하지 않는다.
+
+### 6-4. RPi 분석·운용과 SWD 역할
+
+1. 호스트는 원본 CAN 로그와 시각·디코더/규약 버전을 보존한다. 응답이 있으면 지원 기능 → 식별/부팅 기록 → DTC/크래시 기록 순으로 수집한다. 파싱·무결성·주소/레코드 매칭 검사는 도구가 수행한다.
+2. 개발 측은 **Build ID별 ELF·맵 파일·소스 커밋**을 보관한다. 과거 크래시는 해당 `record_build_id`의 ELF로 분석한다. 심벌이 없거나 빌드가 다르면 소스 위치는 미확인으로 남기며 stacked PC도 유효성·Fault 종류에 따라 원인 명령을 특정하지 못할 수 있다.
+3. MCU 정지나 CAN 단절 중에는 같은 경로로 즉시 조회할 수 없다. 전체 대기 기한 후 기존 로그로 보고하고, 설계된 워치독/통신 복귀 뒤의 기록 조회·외부 전원/리셋/CAN 파형 계측·동일 빌드 개발 장비 재현으로 이어간다. 진단 서버나 부트로더가 살아 있지 않다면 자동 복구를 보장하지 않는다.
+4. SWD는 접근 가능한 개발·벤치에서 원본 기록과 레지스터 대조에 사용한다. 불가하면 `status=unavailable`, `error.code=debug_access_unavailable`와 확인된 이유를 남기고 분석을 계속한다. 연결 실패만으로 보안 잠금이나 MCU 고장을 단정하지 않는다. 접근 불가 후 halt/reset/플래싱을 자동 호출하지 않는다.
+5. 보호 해제·옵션 바이트 변경·대량 삭제는 자동 진단 범위에서 제외한다. STM32 보호 기능과 해제 영향은 계열별로 다르며 F103/G474에 다른 계열의 정책을 일괄 적용하지 않는다. [ST RDP 설명](https://wiki.st.com/stm32mcu/wiki/Security:RDP)
+
+**완료 기준**: SWD가 비활성화된 운용 프로필에서 정상·센서 무효·샘플 정체·ECU 무응답·재부팅·Fault 기록 회수·기록 없음/손상/미지원·빌드 불일치를 구분한다. 저장 중 리셋/전원 차단, 기록 용량 초과와 CAN 단절 후 재조회도 보존 정책에 맞게 시험한다. SWD 차단 시험은 도구 비활성화/접근 거부 모의로 우선 수행하며 실제 보안 옵션을 변경하지 않는다. 가상 버스 시험, 실물 CAN 시험, 제품 보안 설정 검증은 별개로 기록한다.
+
+---
+
+## 7. 선택 OpenOCD 개발·벤치 멀티 타깃 제어 가이드
+
+이 절은 **SWD 접근이 허용된 개발·벤치에서만** 적용합니다. 제품 운용의 필수 수집·복구 단계가 아닙니다. 접근 불가이면 6절의 CAN 기록·외부 계측·재현 경로로 이어갑니다.
 
 RPi 5에서 G474/F103별 설정 파일과 ST-LINK 시리얼을 명시해 타깃을 선택합니다. 동시 실행 시 프로세스별 GDB/Tcl/Telnet 포트도 분리하거나 사용하지 않는 포트를 비활성화해야 합니다. 아래 명령은 **출력을 안전 상태로 전환하고 halt 승인을 받은 뒤 실행하는 증거 수집 예시**입니다. 자동 `resume`은 수행하지 않습니다.
 
@@ -244,12 +318,13 @@ openocd -f interface/stlink.cfg -c "adapter serial <F103_시리얼>" \
 
 stacked PC도 항상 원인 명령을 가리키지는 않습니다. 비정밀 BusFault(`IMPRECISERR`)나 예외 진입 중 스택 저장 오류가 있으면 주소·프레임의 신뢰도를 낮춰 해석합니다. [ST PM0214, Fault status 및 예외 문맥](https://www.st.com/resource/en/programming_manual/pm0214-stm32-cortexm4-mcus-and-mpus-programming-manual-stmicroelectronics.pdf)
 
-`can.bus_state`에서 관측하는 것은 RPi 어댑터의 상태입니다. G474/F103의 TEC/REC·Bus-Off는 별도 텔레메트리나 해당 ECU의 SWD 진단으로 확인해야 합니다. 어댑터·드라이버가 오류 카운터를 제공하지 않으면 미지원으로 표시하고 0으로 간주하지 않습니다.
+`can.bus_state`에서 관측하는 것은 RPi 어댑터의 상태입니다. G474/F103의 TEC/REC·Bus-Off는 원본 ECU가 기록·전송한 상태로 확인하며, 접근 가능한 벤치에서는 SWD 대조를 추가할 수 있습니다. 원격 ECU가 응답하지 않으면 상태는 미확인으로 남깁니다. 어댑터·드라이버가 오류 카운터를 제공하지 않으면 미지원으로 표시하고 0으로 간주하지 않습니다.
 
 ---
 
-## 7. 차별화 및 최종 기대 효과
+## 8. 차별화 및 최종 기대 효과
 
 1. **도메인 게이트웨이 실습**: CAN FD 백본과 Classic CAN 필드버스의 데이터 취합·진단 중계를 검증한다.
 2. **MCU 연산 특성 검증**: CORDIC 기반 FOC 연산, CMSIS-DSP FFT, 필요 시 FMAC 필터를 구현하고 주기·지연·부하를 측정한다.
 3. **근거 기반 진단·복구**: SLM은 원인 후보와 점검 순서를 설명하며, 플레이북과 Safety Gate가 증거 수집·승인·재부팅 복구·재검증을 관리한다. Bus-Off만으로 펌웨어 롤백을 선택하지 않는다.
+4. **제품 운용 진단 검증**: SWD가 없어도 ECU 내부 고장 기록·CAN 진단·빌드별 심벌 분석으로 근거를 확보하고, 수집 불가·미지원·기록 손상을 구분한다. 실제 제품 보안·안전 인증을 충족한다는 의미는 아니다.

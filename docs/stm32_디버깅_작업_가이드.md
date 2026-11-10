@@ -1,8 +1,22 @@
 # STM32 임베디드 디버깅 작업 가이드 및 명령어 매뉴얼 (NUCLEO-G474RE & F103RB / CAN·CAN-FD 전장 특화)
 
 > **이 저장소의 빌드와 VS Code/CubeIDE 디버깅 설정은 [STM32 빠른 시작 가이드](STM32_빠른_시작.md)를 사용하세요.** 예제 ELF 이름은 `build/debug/firmware_g474.elf`, `build/debug/firmware_f103.elf`입니다. 크래시 수집 전에 reset하거나 자동 resume하지 않습니다.
+>
+> **2026-11-10 운용 구분**: 아래 SWD·정지·플래싱 명령은 접근이 허용된 개발·벤치용입니다. 제품 운용에서는 CAN으로 ECU의 상태·DTC·부팅/크래시 기록을 조회하며, SWD 없이 진단을 완료합니다. 해당 기록·UDS 기능은 구현 전 설계이고 설치된 도구만으로 제공되지 않습니다.
 
 본 문서는 Raspberry Pi 5 진단 벤치에 설치된 도구군(`OpenOCD`, `GDB-multiarch`, `pyocd`, `stlink-tools`, `binutils-arm-none-eabi`, `can-utils`, `pyserial`, `Qwen 2.5 3B`)을 활용하여 **NUCLEO-G474RE(메인 DCU / Cortex-M4F)** 및 **NUCLEO-F103RB(분산 ECU / Cortex-M3)** 보드의 **실리콘 코어 레벨부터 CAN/CAN-FD 차량 버스 레벨까지 전 계층을 디버깅**하기 위한 실전 CLI 가이드입니다.
+
+---
+
+## 0. SWD가 없는 제품 운용에서의 조사 순서
+
+1. RPi의 CAN 원본 로그·수신 시각과 마지막 정상 데이터, 로컬 어댑터 상태를 보존한다. 무응답만으로 원격 ECU의 크래시나 Bus-Off를 확정하지 않는다.
+2. ECU가 응답하면 펌웨어/Build ID·지원 기능·boot ID·리셋 기록, DTC/snapshot, 저장된 크래시 요약을 허용된 CAN 진단 서비스로 조회한다. 요청 ID·DID·게이트웨이 경로·기한은 합의 후 구현한다.
+3. 멈춘 ECU에는 즉시 질의할 수 없다. 설계된 워치독/통신 복귀 후 기록을 재조회하거나 전원·리셋·CAN 파형을 계측한다. 기록이 없거나 손상/미지원이면 그 사실과 다음 점검을 보고한다.
+4. 크래시 기록의 `record_build_id`에 대응하는 ELF로 유효한 stacked PC 등을 분석한다. 최신 실행 파일을 무조건 사용하지 않는다. 심벌 부재·빌드 불일치·프레임 손상 시 소스 위치를 확정하지 않는다.
+5. 추가 조사가 필요하면 동일 빌드의 개발 장비에서 재현하고 SWD 대조를 선택한다. 접근 불가는 `debug_access_unavailable`로 남기며 보호 해제·대량 삭제·halt/reset/플래싱을 자동 실행하지 않는다.
+
+Fault 처리·리셋 보존 RAM·비휘발성 저장·전원 차단·기록 전송 계약은 [CAN 아키텍처 6절](차량용_CAN_통신_도입_및_아키텍처_설계.md#6-swd-없이-진단하는-제품-운용-설계), 제안 API는 [Agent Tool 설계](설계_장비별기능_및_AgentTool인터페이스.md)를 따른다. 실제 RDP를 변경하지 않고 SWD 도구 비활성화/접근 거부 모의로 이 흐름을 먼저 검증한다.
 
 ---
 
@@ -10,13 +24,14 @@
 
 | 디버깅 계층              | 담당 도구                            | 주요 디버깅 대상                                             |  G474RE (Cortex-M4)   |  F103RB (Cortex-M3)   |
 | :----------------------- | :----------------------------------- | :----------------------------------------------------------- | :-------------------: | :-------------------: |
-| **CPU 코어 / 크래시**    | `openocd`, `gdb-multiarch`           | CPU 실행 제어, Core 레지스터, HardFault (CFSR, BFAR, FPU)    | `target/stm32g4x.cfg` | `target/stm32f1x.cfg` |
+| **선택 벤치 CPU / 크래시** | `openocd`, `gdb-multiarch` | 접근 허용 시 CPU 실행 제어·Fault 문맥 대조 | `target/stm32g4x.cfg` | `target/stm32f1x.cfg` |
 | **소스코드 심볼 역추적** | `arm-none-eabi-addr2line` | 크래시 주소를 일치하는 ELF의 소스 위치와 대조 | `firmware_g474.elf` | `firmware_f103.elf` |
 | **차량 버스 레벨** ⭐ | `can-utils`, `ip link`, `python-can` | CAN FD(데이터 2Mbps 초기 목표) / Classic CAN(500kbps) 모니터링 | 백본 `can0` | 게이트웨이 경유 |
 | **차량 진단 (UDS)** ⭐ | 향후 `tool_can.py`, 진단 클라이언트 | ECU가 지원하는 UDS 요청/응답, DTC, Freeze Frame | 구현 및 주소 합의 필요 | 구현 및 게이트웨이 경로 합의 필요 |
+| **제품 부팅 / 크래시 기록** | 향후 `can.get_identity`, `can.read_boot_record`, `can.read_crash_record` | ECU 펌웨어에 저장한 기록을 CAN으로 조회 | DID·보존 계약 및 구현 필요 | 동일, 메모리 예산 확인 필요 |
 | **메모리 & 주변장치**    | `openocd (mdw/mww)`                  | SRAM 덤프, FDCAN/bxCAN 에러 레지스터, CORDIC/TIM SFR 실사    |   128KB SRAM, FDCAN   |   20KB SRAM, bxCAN    |
 | **펌웨어 수명주기**      | `st-flash`, `openocd`                | 플래싱과 검증된 부트로더 기반 복구                            | 512KB Flash / Dual-Bank 설정 가능 | 128KB Flash |
-| **AI 자율 분석**         | `Qwen 2.5 3B` (llama.cpp)            | CAN DTC 코드 + SWD 레지스터를 결합한 자연어 종합 정비 리포트 |       로컬 SLM        |       로컬 SLM        |
+| **AI 근거 설명** | `Qwen 2.5 3B` (llama.cpp) | 도구가 해석한 CAN 상태·DTC·저장 기록을 설명. SWD 증거는 선택 추가 | 로컬 SLM | 로컬 SLM |
 
 ---
 
@@ -267,13 +282,14 @@ IDE(VS Code, CubeIDE)나 터미널에서 C 소스코드 브레이크포인트를
 
 ### [작업 10] AI 진단 에이전트 연동 예시 (Qwen 2.5 3B)
 
-UDS 등으로 수집한 DTC와 SWD 덤프를 온디바이스 SLM에 전달해 원인 후보와 추가 점검을 요약하는 예시입니다. 모델 응답은 실제 원인을 확정하지 않으며 원본 로그와 대조해야 합니다.
+아래는 **실제 수집 결과가 아닌 입력 예시**입니다. 제품 운용에서는 CAN으로 조회한 DTC·부팅/크래시 기록을 먼저 도구로 검증·해석한 뒤 SLM에 전달합니다. SWD 덤프가 없어도 설명을 생성하며, 모델 응답은 실제 원인을 확정하지 않습니다. 과거 크래시를 분석할 때는 기록 당시 Build ID의 ELF가 필요합니다.
 
 ```bash
-echo "아래 차량 CAN 고장 로그 및 G474RE 레지스터 덤프를 분석하고 원인과 조치 가이드를 한글로 보고해줘:
-[진단] 수집된 DTC: 예시 프로젝트 코드, 과전류 의심 (원본 ECU와 수집 시각 확인 필요)
-[FDCAN_PSR] 0x00000003 (LEC=3, ACK Error)
-[CPU 레지스터] PC: 0x08001234, CFSR: 0x00008200 (PRECISERR), BFAR: 0x00000004
-[소프트웨어] CORDIC FOC 인버터 제어 루프" | \
+echo "다음은 모의 진단 증거다. 확인된 사실, 원인 후보, 미확인 항목, 다음 점검을 구분해줘:
+[출처] cell1의 CAN 저장 기록, record_id=demo-001, capture_boot_id=demo-boot-7
+[펌웨어] record_build_id=demo-build-a, running_build_id=demo-build-b
+[크래시] CFSR=0x00008200, BFAR=0x00000004. 도구 해석: PRECISERR와 BFARVALID 설정
+[문맥] stacked PC=0x08001234. 프레임 유효성 확인은 필요하며 일치하는 ELF가 없어 소스 위치 미확인
+[접근] 제품 운용 프로필에서 SWD 미사용. 추가 메모리 조회나 보호 해제 없이 근거 범위에서 설명" | \
 llama-cli -m ~/models/qwen2.5-3b-instruct-q4_k_m.gguf -t 4 -c 2048 --temp 0.2
 ```
