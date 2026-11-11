@@ -1,0 +1,17 @@
+VERSION "learning-only-v0"
+
+NS_ :
+
+BS_:
+
+BU_: LearningBms LearningGateway
+
+BO_ 512 LEARNING_BMS: 8 LearningBms
+ SG_ PackVoltage : 0|16@1+ (1,0) [0|65534] "mV" LearningGateway
+ SG_ PackCurrent : 16|16@1- (10,0) [-327670|327670] "mA" LearningGateway
+ SG_ SOC : 32|8@1+ (1,0) [0|100] "%" LearningGateway
+ SG_ MaxTemperature : 40|8@1- (1,0) [-128|126] "degC" LearningGateway
+ SG_ BmsFlags : 48|8@1+ (1,0) [0|255] "" LearningGateway
+ SG_ Sequence : 56|8@1+ (1,0) [0|255] "" LearningGateway
+
+CM_ BO_ 512 "Learning only. Not an approved vehicle protocol. Invalid sentinels and freshness require application validation.";
