@@ -9,6 +9,7 @@
 # 4. 온디바이스 SLM 모델 다운로드 (Qwen 2.5 3B Instruct, Qwen 3 4B)
 # 5. 파이썬 진단 라이브러리 및 CMSIS Device Family Pack (DFP) 설치
 # 6. Docker Engine, Compose / Buildx 플러그인 및 사용자 권한 설정
+# 7. SocketCAN 확인 도구 (iproute2, can-utils). 보드별 SPI overlay는 별도 설정
 # ==============================================================================
 
 set -eo pipefail
@@ -89,6 +90,8 @@ install_system_and_embedded_tools() {
         gdb-multiarch \
         stlink-tools \
         binutils-arm-none-eabi \
+        iproute2 \
+        can-utils \
         udev
 
     log_success "APT 패키지 설치 완료."

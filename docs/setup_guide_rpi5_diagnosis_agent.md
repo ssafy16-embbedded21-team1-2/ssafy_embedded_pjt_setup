@@ -125,11 +125,15 @@ sudo apt-get update -y
 sudo apt-get install -y \
     build-essential cmake ccache git curl wget pkg-config libssl-dev \
     python3 python3-pip python3-venv python3-serial \
-    openocd gdb-multiarch stlink-tools binutils-arm-none-eabi udev
+    openocd gdb-multiarch stlink-tools binutils-arm-none-eabi iproute2 can-utils udev
 
 # 시리얼 및 USB 프로브 접근 권한 추가
 sudo usermod -aG dialout,plugdev $USER
 ```
+
+`iproute2`는 CAN 네트워크 설정·상태 조회, `can-utils`는 `candump`·`cansend`를 제공한다.
+설치만으로 확장 보드가 등록되지는 않는다. SPI CS/IRQ·발진자·DIP를 확인한 뒤 보드별 overlay를 적용한다.
+[RPi5–F103 첫 CAN 시험](RPi5_F103_CAN_첫_통신_테스트.md)에 해당 절차와 STM32 속도·송신 설정 확인 방법을 정리했다.
 
 ### 단계 3: PyOCD 및 STM32 Device Family Pack (DFP) 설치
 
@@ -299,19 +303,19 @@ Found 1 stlink programmers
 
 ## 6. 트러블슈팅 (자주 발생하는 문제 및 해결책)
 
-### Q1. `Warn : DEPRECATED: auto-selecting transport "swd (dapdirect)"` 경고가 뜹니다.
+### Q1. `Warn : DEPRECATED: auto-selecting transport "swd (dapdirect)"` 경고가 뜹니다
 
 - **해결책**: OpenOCD v0.12 이상에서는 `interface/stlink.cfg` 뒤에 명시적으로 `-c "transport select swd"`를 선언해야 합니다.
 
-### Q2. `Warn : target was in unknown state when halt was requested` 경고가 뜹니다.
+### Q2. `Warn : target was in unknown state when halt was requested` 경고가 뜹니다
 
 - **해결책**: MCU가 런타임에 자유 실행 중일 때 강제 `halt`하면 발생하는 일반적인 경고입니다. 리셋 신호와 연동하여 멈추는 `init; reset halt;` 명령어를 사용하면 경고 없이 즉각 정지됩니다.
 
-### Q3. `[stm32f4x.cpu] Cortex-M3 r1p1 processor detected` 메시지가 뜹니다.
+### Q3. `[stm32f4x.cpu] Cortex-M3 r1p1 processor detected` 메시지가 뜹니다
 
 - **해결책**: 실제 연결된 보드가 STM32F4가 아니라 **STM32F1 계열(Cortex-M3)**입니다. `target/stm32f4x.cfg` 대신 **`target/stm32f1x.cfg`**를 지정해 주세요.
 
-### Q4. `st-info --probe` 또는 `openocd` 실행 시 권한 오류(`Permission denied`)가 발생합니다.
+### Q4. `st-info --probe` 또는 `openocd` 실행 시 권한 오류(`Permission denied`)가 발생합니다
 
 - **해결책**:
 
@@ -322,7 +326,7 @@ Found 1 stlink programmers
 
   명령 후 터미널 세션을 닫고 다시 로그인(`exit`)해야 새 그룹 권한이 적용됩니다.
 
-### Q5. Docker에서 `permission denied` 또는 `Cannot connect to the Docker daemon`이 발생합니다.
+### Q5. Docker에서 `permission denied` 또는 `Cannot connect to the Docker daemon`이 발생합니다
 
 ```bash
 id -nG
@@ -332,7 +336,7 @@ sudo docker info
 
 `sudo docker info`만 성공하면 `docker` 그룹 반영 여부를 확인하고 재접속하세요. 그룹이 없다면 `sudo usermod -aG docker "$(id -un)"` 후 재접속합니다. 서비스가 꺼져 있다면 `sudo systemctl enable --now docker`를 실행합니다. `docker.sock`에 `chmod 666`을 적용하지 않습니다.
 
-### Q6. `No memory limit support` / `No swap limit support` 경고가 나옵니다.
+### Q6. `No memory limit support` / `No swap limit support` 경고가 나옵니다
 
 ```bash
 docker info --format 'memory={{.MemoryLimit}} swap={{.SwapLimit}}'
@@ -352,6 +356,8 @@ cat /sys/fs/cgroup/cgroup.controllers
 
 > [!TIP]
 > **아직 RPi 5에 Tailscale을 설정하지 않은 팀원**은 초기 USB 연결부터 계정 인증까지 쉽게 설명된 **[`tailscale_초간단_설치_가이드.md`](tailscale_초간단_설치_가이드.md)**를 참고하세요.
+
+<!-- 별개의 안내 블록 -->
 
 > [!WARNING]
 > **⚠️ Tailscale IP는 기기마다 완전히 다릅니다! 본인의 IP를 꼭 확인 후 입력하세요.**

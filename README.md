@@ -17,6 +17,9 @@
 
 **프로젝트와 함께 CAN을 학습하려면** [CAN 학습 자료](docs/학습자료/README.md)를 참고하세요. 물리 버스·프레임·오류, STM32 비트 타이밍, SocketCAN/vcan 실습, 신호 규약·DBC, ISO-TP/UDS와 SWD 없는 제품 진단을 순서대로 다룹니다.
 
+**확장 보드와 F103의 실제 통신을 처음 확인하려면** [RPi5–F103 첫 CAN 시험](docs/RPi5_F103_CAN_첫_통신_테스트.md)을 따릅니다.
+Seengreat CAN0의 DIP·SocketCAN 설정, CubeMX의 F103 송신 예제, 500kbit/s 수신 확인 순서입니다.
+
 ---
 
 ## 1. 폴더 구조 (Directory Structure)
