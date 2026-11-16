@@ -309,3 +309,25 @@ Sense HAT 라이브러리 설치 이력이나 주석 처리된 설정만으로 G
 
 [sense-overlay]: https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.18.y/arch/arm/boot/dts/overlays/rpi-sense-overlay.dts
 [sense-v2-overlay]: https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.18.y/arch/arm/boot/dts/overlays/rpi-sense-v2-overlay.dts
+
+## 11. 후속 사용자 멀티미터 보고서 반영
+
+2026-11-16 기준 인계 보고서에서 다음 추가 관측이 제공됐다.
+이번에는 보고서를 검토했으며 RPi 접속·계측·설정 변경은 수행하지 않았다.
+
+- U4 VDD·RESET#는 각각 3.3V로 보고됐다. U5의 개별 측정값은 없다.
+- CAN0 SI·SO·SCK·선택 CS 경로가 도통했고, MOSI·MISO·SCLK 사이는 1MΩ 이상이었다.
+- HAT를 제거한 SPI0·SPI1 외부 루프백 성공이 보고됐다.
+- HAT 제거 상태에서 GPIO8은 0.7~1.0V, GPIO11·21은 약 1V의 출력 LOW 전압이 보고됐다.
+- GPIO7·10·17의 LOW는 약 0V였다.
+- GPIO21을 실행 중인 `gpioset`으로 점유한 상태에서도 약 1V가 측정됐다고 한다.
+
+위 내용은 사용자 제공 측정 보고이며 기존 원격 로그의 출처와 구분한다.
+첨부 보고서의 소프트웨어 SPI는 Python·`pinctrl` 기반으로 설명돼 있다.
+기존 40핀 종합 점검의 `libgpiod` 직접 제어와 동일 실행으로 취급하지 않는다.
+보고서의 GPIO 독립 시험에서는 SPI와 CAN overlay를 비활성화했으므로
+9절의 CS0 활성 상태를 현재 상태라고 단정하지 않는다.
+
+**우선순위는 HAT 내부 검사에서 RPi GPIO 출력·측정 환경의 독립 검증으로 옮긴다.**
+RP1 손상과 CAN 실패의 직접 인과관계는 아직 미확정이다.
+정리된 관측·판별 한계·최소 후속 시험은 [GPIO 추가 측정 요약](RPi5_CAN_GPIO_추가_측정_요약.md)에 있다.
