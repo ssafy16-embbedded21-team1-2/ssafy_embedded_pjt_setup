@@ -174,5 +174,138 @@ Tailscale 연결 복구 후 SSH로 다음 상태를 읽었다.
 이번 재개 점검에서는 로그·설정만 읽었으며 SPI 전송 시험, 드라이버 재바인딩, 부팅 설정 변경은 추가 수행하지 않았다.
 
 멀티미터는 다른 장소에서 사용할 수 있으므로 원격 점검과 동시에 측정할 필요는 없다.
-아직 실제 전압값은 확보하지 않았고, 다음 단계는 전원·RESET 측정이다.
+이 원격 점검 시점에는 실제 전압값을 확보하지 않았고, 다음 단계로 전원·RESET 측정을 정했다.
 측정 위치와 오프라인 기록표는 [CAN HAT 전압 측정 가이드](RPi5_CAN_HAT_전압_측정_가이드.md)에 정리했다.
+
+## 8. 2026-11-16 사용자 전압 측정 결과
+
+사용자가 측정 가이드에 14:50 측정값을 기록했다. 원격으로 직접 계측한 결과와 구분한다.
+
+| 항목 | 사용자 기록 |
+| --- | --- |
+| 장착·로직 선택 | 40핀, 3.3V |
+| HAT 헤더 5V | 5.2V |
+| SW3 V-IO 출력 | 3.3V |
+| 내부 3V3 입력·U4/U5 RESET# | 미측정 |
+| PWR LED | 붉은색 |
+
+안내한 논리측 GND·DC 전압 모드를 사용했다는 전제에서,
+측정 당시 헤더와 SW3 출력에 뚜렷한 전원 부재는 관측되지 않았다.
+칩 VDD까지의 공급, RESET 해제, 순간 전압 강하, SPI·발진자 정상 여부는 아직 확정할 수 없다.
+멀티미터 모드·범위는 미기록이고 검은 프로브 위치에는 확인용 문구가 남아 있다.
+
+다음 원인 분리는 정상 장비와 교차 시험 또는 칩 VDD·RESET 및 무전원 SPI 도통 측정으로 진행한다.
+위 항목이 정상이면 실제 SPI 파형과 발진자를 확인한다.
+측정점과 순서는 [측정 가이드의 후속 점검](RPi5_CAN_HAT_전압_측정_가이드.md#7-2026-11-16-측정-결과-해석과-다음-점검)에 정리했다.
+이번 결과 검토 중 RPi 재접속·추가 SPI 전송·설정 변경은 수행하지 않았다.
+
+## 9. 2026-11-16 CAN0 DIP 변경 후 설정 수정·실기기 시험
+
+사용자가 CAN0 DIP를 **P11 OFF·P10 ON**으로 변경했다고 확인했다.
+SSH 확인 결과, 부팅 설정은 여전히 CAN0를 `spi0-1`로 지정해 실제 CS 경로와 달랐다.
+이 불일치를 수정하고 재부팅한 뒤 새 CS0 경로를 시험했다.
+
+### 9-1. 백업과 적용 설정
+
+원격 백업 디렉터리:
+
+```text
+/var/backups/rpi5-can/dip-cs0-20261116T050230Z/
+```
+
+수정 전 `config.txt`, `cmdline.txt`, 커널 로그·장치·서비스 상태를 저장했다.
+CAN0의 `spi0-1`을 `spi0-0`으로 바꾸고 해당 DIP·CS 주석을 고쳤다.
+기존 진단용 SPI 속도 500kHz와 CAN1 설정은 유지했다.
+수정 후 CAN 관련 유효 설정은 다음과 같다.
+
+```ini
+dtparam=spi=on
+dtoverlay=spi1-3cs
+dtoverlay=mcp2515,spi0-0,oscillator=16000000,interrupt=25,speed=500000
+dtoverlay=mcp2515,spi1-1,oscillator=16000000,interrupt=24,speed=500000
+```
+
+이 코드는 관련 줄의 발췌이며 실제 파일에는 기존 모델별 섹션과 다른 설정이 함께 있다.
+500kHz는 SPI 속도이며 STM32의 CAN 버스 속도 500kbit/s와 별개다.
+기존 `nospi10`, UART, 커널·메모리 관련 설정은 이번 시험에서 변경하지 않았다.
+
+### 9-2. 실제 수행 결과
+
+| 항목 | 결과 |
+| --- | --- |
+| 변경 전 boot ID | `6fd656e9-d020-4134-8185-41b32a742cb3` |
+| 재부팅 후 boot ID | `421f3543-7566-4558-8599-9cf8cc960e93` |
+| 커널 | `6.18.62-v8-16k+` 유지 |
+| CAN0 장치 트리 | `spi0.0`, `reg=0`, IRQ25, 최대 SPI 500kHz |
+| CAN0 부팅 probe | CS0에서도 conf mode 진입 실패, errno110 |
+| CAN1 부팅 probe | `spi1.1`에서 같은 초기화 실패 |
+| CAN0 직접 읽기 | mode0, 100kHz·500kHz에서 각 3회, 총 6회 모두 `00 00` |
+| CAN 인터페이스 | 없음 |
+| 종료 후 서비스 | Qwen active, Agent healthy |
+| 전원 플래그 | `throttled=0x0` |
+
+직접 읽기는 미바인딩 `spi0.0`에만 임시 `spidev`를 연결해 수행했다.
+SPI RESET 명령 후 CANSTAT/CANCTRL을 읽었으며 유효한 리셋 후 상태를 얻지 못했다.
+시험 종료 후 임시 연결을 해제하고 `driver_override`를 비운 뒤 원래 드라이버로 재탐색했다.
+최종 CAN0는 초기화 실패로 미바인딩 상태이며 임시 `spidev0.0`는 남지 않았다.
+외부 CAN 프레임 송신과 STM32 플래싱은 수행하지 않았다.
+
+부팅 설정은 사용자 확인 DIP와 맞는 **CS0 설정으로 유지**했다.
+직접 읽기 시험 전후 설정 SHA-256은 동일하다.
+
+```text
+91f4ce0499bd307c945cca3ff9867c8dc3ec8278dae6e292139b7086fa8258d4
+```
+
+RPi 표시 시각이 이전 측정 기록보다 이르게 나타나므로 시험 순서는 요청 순서와 boot ID로 구분한다.
+
+### 9-3. 해석과 남은 점검
+
+부팅 설정과 DIP의 불일치는 해결했지만, 실제 다른 CS 경로에서도 칩 응답은 확보하지 못했다.
+P11 선택 접점이나 GPIO7 경로 하나만의 문제로 설명할 가능성은 낮아졌다.
+공유 SPI 신호·커넥터, 칩 VDD·RESET·발진자와 보드 회로 문제는 여전히 남아 있다.
+다음 단계는 정상 장비와 교차 시험 또는 칩 전원·RESET·도통·파형 측정이다.
+
+백업 폴더에는 `baseline.json`, `config.txt.before`, `config.txt.after`,
+`cmdline.txt.before`, `config.diff`, `cs0-register-read.json`, `final-state.json`을 저장했다.
+이전 CS1 설정으로 복귀하려면 CAN0 DIP도 P11 ON·P10 OFF로 함께 돌려야 한다.
+
+## 10. 2026-11-16 Sense HAT 잔여 설정 충돌 확인
+
+사용자가 이전 Sense HAT 사용 이력이 현재 CAN 오류와 관련 있는지 점검을 요청했다.
+boot ID `421f3543-7566-4558-8599-9cf8cc960e93`에서 설정·장치 트리·점유 상태를 읽었다.
+이번 확인에서는 부팅 설정 변경, SPI 전송, 재부팅을 수행하지 않았다.
+
+| 확인 항목 | 관측 결과 |
+| --- | --- |
+| 부팅 설정 | `# dtoverlay=rpi-sense`로 주석 처리됨. 활성 Sense HAT overlay 없음 |
+| include 설정 | 현재 `config.txt`에 추가 설정 파일을 읽는 include 없음 |
+| 실제 장치 트리 | Sense HAT·관련 센서 compatible 노드 없음 |
+| HAT 자동 식별 정보 | `/proc/device-tree/hat` 메타데이터 없음 |
+| I2C 장치 등록 | 어댑터만 보이며 Sense HAT 장치 등록 없음 |
+| GPIO 기능 | GPIO9~11은 SPI0, GPIO19~21은 SPI1 기능 |
+| CS 점유 | GPIO7/8은 SPI0, GPIO16/17/18은 SPI1의 CS consumer |
+| GPIO23·IRQ | GPIO23은 none, GPIO24/25는 입력. Sense HAT consumer 없음 |
+| 모듈·서비스 | 로드된 모듈과 unit 이름에서 Sense HAT 관련 항목 미발견 |
+| 사용자 프로세스 장치 접근 | 확인 순간 SPI·GPIO·I2C 장치 파일을 연 프로세스 없음 |
+| 커널 로그 | 핀 중복 요청 오류는 발견되지 않았고 MCP2515 conf mode 실패는 유지 |
+
+`dtoverlay -l`의 빈 결과만으로 판단하지 않고 실제 장치 트리와 GPIO 상태를 함께 확인했다.
+현재 관측에서는 **Sense HAT의 활성 설정이 CAN 초기화를 방해한다는 증거가 없다.**
+프로세스 파일 접근 확인은 확인 순간의 상태이며, 이후 실행되는 프로그램까지 보장하는 것은 아니다.
+
+공식 `rpi-sense` 및 `rpi-sense-v2` overlay는 I2C1 장치와 GPIO23 조이스틱 IRQ를 설정한다.
+현재 CAN0 IRQ는 GPIO25, CAN1 IRQ는 GPIO24이며 이 GPIO23 경로를 선택하지 않았다.
+`dtparam=i2c_arm=on`은 GPIO2/3의 I2C 활성화로, 그 자체가 현재 SPI0/1 경로와 충돌하지 않는다.
+Sense HAT 라이브러리 설치 이력이나 주석 처리된 설정만으로 GPIO가 점유되지는 않는다.
+
+근거: [공식 Sense HAT overlay][sense-overlay],
+[공식 Sense HAT v2 overlay][sense-v2-overlay].
+이는 현재 소프트웨어 설정 점검이며 실물 HAT 중첩 배선의 전기적 간섭까지 측정한 것은 아니다.
+불필요한 I2C 비활성화나 패키지 삭제는 하지 않았다.
+다음 원인 분리는 9-3의 칩 전원·RESET·SPI 경로·발진자 또는 정상 장비 교차 시험을 따른다.
+
+원본: `/var/backups/rpi5-can/dip-cs0-20261116T050230Z/sense-hat-audit.json`.
+
+[sense-overlay]: https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.18.y/arch/arm/boot/dts/overlays/rpi-sense-overlay.dts
+[sense-v2-overlay]: https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.18.y/arch/arm/boot/dts/overlays/rpi-sense-v2-overlay.dts
