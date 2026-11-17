@@ -48,12 +48,12 @@ Agent는 확보한 증거와 일반 CAN 점검 절차로 다음 검사를 안내
 
 [구매 목록](부품_구매_목록.csv)에는 SN65HVD230 모듈이 2개다. 3대 모두에 외장 트랜시버가 필요하다면 1개가 더 필요하다.
 RPi 어댑터에 컨트롤러·트랜시버가 포함돼 있는지와 내장 종단을 확인한다. 2채널 어댑터도 이 시험에는 한 채널만 사용한다.
-이 문서는 기존 G474 게이트웨이·CAN FD 확장 설계와 구분되는 **단일 Classic CAN 시험 버스**다.
+이 문서는 **단일 Classic CAN 시험 버스**를 기준으로 하며, `NUCLEO-G474RE` 게이트웨이·CAN FD 구성은 2026-11-17 기준 배제되었다.
 
 | 논리 이름 | 역할 | 보드 선택 제안 |
 | --- | --- | --- |
-| `dut-a` | 시험값 100 송신, CAN 상태를 UART로 제공 | NUCLEO-F103RB 또는 G474RE |
-| `dut-b` | 시험값 200 송신, CAN 상태를 UART로 제공 | NUCLEO-F103RB 또는 G474RE |
+| `dut-a` | 시험값 100 송신, CAN 상태를 UART로 제공 | NUCLEO-F103RB |
+| `dut-b` | 시험값 200 송신, CAN 상태를 UART로 제공 | NUCLEO-F103RB |
 | `dut-c` | 시험값 300 송신, CAN 상태를 UART로 제공 | 2차에서 추가, 실물 관리 ID 지정 |
 | `observer` | SocketCAN 수신·화면·UART 조회·실행 기록 | RPi 5 |
 
@@ -237,7 +237,7 @@ CAN 재초기화·자가 시험으로 카운터 의미가 끊기면 epoch를 증
 
 1차는 상태 조회·사람 측정으로 완성하고 루프백은 별도 기능으로 추가한다.
 **내부 루프백 통과는 시험한 MCU 내부 송수신 경로의 통과이며 외부 통신 설정·트랜시버·배선 정상의 증명이 아니다.**
-F103 bxCAN과 G474 FDCAN의 시험 모드·핀 출력·ACK 처리 차이를 MCU 문서에서 확인한다.
+F103 `bxCAN`의 시험 모드(`Silent`, `Loopback`, `Silent Loopback`)·핀 출력·ACK 처리 차이를 `RM0008` 문서에서 확인한다.
 SocketCAN의 기본 local echo도 MCU 루프백이나 상대 장비 수신 성공으로 해석하지 않는다.
 [ST 루프백 가이드](https://community.st.com/stm32-mcus-60/guide-to-can-bxcan-can2-0-configuration-in-loop-back-mode-on-stm32-mcus-146788),
 [Linux SocketCAN의 local loopback](https://docs.kernel.org/networking/can.html#local-loopback-of-sent-frames).
@@ -397,7 +397,7 @@ AI 전달물: 수집·검증 도구, 관측별 규칙, 측정/사람 확인 UI, 
 
 ## 12. 구현 전 합의할 값
 
-> **[2026-11-17 업데이트]** 물리 CAN/UART 1차 연동 실측 결과를 반영했다. 또한 2026-11-16 Jira(`PJT-15`, `PJT-16`) 기준으로 G474RE 게이트웨이를 제외한 **보드 A(열관리 제어기, F103RB) + 보드 B(스마트 냉각팬 ECU, F103RB) + RPi 5** 단일 Classic CAN 버스 토폴로지로 전환됐으며, 상세 통합 규약과 임계치는 임베디드 팀 합의 대기(`TBD`)다.
+> **[2026-11-17 업데이트]** 물리 CAN/UART 1차 연동 실측 결과를 반영했다. 현재 프로젝트 구성은 **보드 A(열관리 제어기, `NUCLEO-F103RB`) + 보드 B(스마트 냉각팬 ECU, `NUCLEO-F103RB`) + RPi 5(`can0`)** 단일 Classic CAN 버스 토폴로지이며(`PJT-15`, `PJT-16`), 상세 통합 규약과 임계치는 임베디드 팀 합의 대기(`TBD`)다.
 
 | 결정 항목 | 2026-11-17 반영 상태 / 채울 값 |
 | --- | --- |
@@ -408,7 +408,7 @@ AI 전달물: 수집·검증 도구, 관측별 규칙, 측정/사람 확인 UI, 
 | 시험 ID `0x510~0x512`·schema1·8B 배치 예약 | 1차 실측 ID는 `0x100` (DLC 4, STM32 TX) / `0x123` (DLC 4, RPi TX -> STM32 RX). 정식 ID 체계(`0x1~`/`0x2~` vs 비트필드 분할 vs `0x510~0x512`)와 페이로드 배치는 TBD (`PJT-16`) |
 | UART 115200·길이·기한·필드·오류 의미 | `/dev/ttyACM0` `115200 8N1` 출력(`txreq`, `txok`, `errcb`, `errcode=0x00001000`, `rx`, `last`, `dlc`) 실측 확인. 운영 파싱 계약·길이·기한은 TBD |
 | 저항 허용 범위와 계측기·전원 분리 절차 | TBD |
-| MCU별 오류 의미·카운터 epoch·루프백·원복 절차 | F103 `errcb`/`errcode`는 부팅 후 누적 값임을 확인(미연결 시 누적된 `errcb=1086`과 정상 통신 중 불변 상태 분리 필요). 루프백·원복 절차·G474RE 이후 범위는 TBD |
+| MCU별 오류 의미·카운터 epoch·루프백·원복 절차 | F103 `errcb`/`errcode`는 부팅 후 누적 값임을 확인(미연결 시 누적된 `errcb=1086`과 정상 통신 중 불변 상태 분리 필요). `bxCAN` 루프백·원복 절차는 TBD |
 | 최초 케이스와 후속 범위·수동 검사/자가 시험 허용자 | TBD (`PJT-15`, `PJT-16` 합의 대기) |
 
 채택 값은 [CAN 규약 회의 템플릿](CAN_통신규약_합의_회의_템플릿.md)에 결정 ID와 함께 기록하고

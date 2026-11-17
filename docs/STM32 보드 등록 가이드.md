@@ -33,7 +33,6 @@
 | 보드 | 팩 검색 인자 | PyOCD 전용 타깃 이름 | 설치 확인한 팩 예시 |
 | --- | --- | --- | --- |
 | NUCLEO-F103RB | `stm32f103rb` | `stm32f103rb` | `Keil.STM32F1xx_DFP` 2.4.1 |
-| NUCLEO-G474RE | `stm32g474re` | `stm32g474retx` | `Keil.STM32G4xx_DFP` 2.2.0 |
 
 타깃 팩 설치·확인은 [환경 구축 가이드](setup_guide_rpi5_diagnosis_agent.md)의 PyOCD 절차를 따릅니다.
 
@@ -68,7 +67,6 @@ pyocd pack show
 pyocd list --targets
 pyocd list
 
-# G474RE를 조회할 때는 stm32g474retx로 변경합니다.
 TARGET=stm32f103rb
 STLINK_UID='pyocd list에서 확인한 해당 프로브의 Unique ID'
 pyocd commander --no-config --target "$TARGET" --uid "$STLINK_UID" \

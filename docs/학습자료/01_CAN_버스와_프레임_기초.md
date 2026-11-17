@@ -7,7 +7,7 @@
 | 계층         | 이 프로젝트의 예                             | 책임                                       |
 | ------------ | -------------------------------------------- | ------------------------------------------ |
 | 응용·진단    | 센서 신호, DTC, UDS                          | 값의 의미·주기·유효성·요청 응답            |
-| CAN 컨트롤러 | F103 bxCAN, G474 FDCAN, RPi SPI CAN 컨트롤러 | 프레임 송수신·중재·CRC·오류 관리           |
+| CAN 컨트롤러 | `NUCLEO-F103RB` bxCAN, RPi SPI `MCP2515` 컨트롤러 | 프레임 송수신·중재·CRC·오류 관리 |
 | CAN 트랜시버 | SN65HVD230 등                                | TX/RX 논리 신호와 CANH/CANL 버스 신호 변환 |
 | 물리 연결    | 케이블·종단·기준 GND                         | 노드 사이의 전기적 연결                    |
 
@@ -71,15 +71,15 @@ TEC(송신 오류 카운터)와 REC(수신 오류 카운터)는 역할이 다르
 
 의도적 오류 시험은 출력 부하를 분리한 벤치에서 시나리오·중단 조건을 정한다. CANH/CANL을 임의로 전원이나 GND에 단락시키는 방식을 실습 절차로 사용하지 않는다.
 
-## 5. CAN FD에서 달라지는 것
+## 5. Classic CAN과 CAN FD의 개념적 차이 (참고)
 
-CAN FD는 최대 데이터 길이를 64 byte로 늘리고 BRS를 사용하면 데이터 구간에서 더 빠른 bitrate를 쓸 수 있다. 중재 구간과 데이터 구간의 속도를 구분한다. FD 데이터 길이는 0~8, 12, 16, 20, 24, 32, 48, 64 byte이며 DLC 코드 15는 64 byte를 뜻한다. SocketCAN의 길이 값과 DLC 코드를 혼동하지 않는다. [CiA CAN FD 설명](https://www.can-cia.org/can-knowledge/can-fd-the-basic-idea), [Linux CAN FD API](https://docs.kernel.org/networking/can.html)
+CAN FD는 최대 데이터 길이를 64 byte로 늘리고 BRS를 사용하면 데이터 구간에서 더 빠른 bitrate를 쓸 수 있다. 중재 구간과 데이터 구간의 속도를 구분한다. FD 데이터 길이는 0\~8, 12, 16, 20, 24, 32, 48, 64 byte이며 DLC 코드 15는 64 byte를 뜻한다. [CiA CAN FD 설명](https://www.can-cia.org/can-knowledge/can-fd-the-basic-idea), [Linux CAN FD API](https://docs.kernel.org/networking/can.html)
 
-Classic 노드가 있는 같은 버스에 FD 프레임을 보내도 된다고 가정하지 않는다. 본 설계는 FD 백본과 Classic 필드버스를 분리하고 게이트웨이가 정의된 신호를 다시 구성한다. 컨트롤러·트랜시버·어댑터·드라이버·배선 전체의 지원을 확인해야 한다.
+본 프로젝트는 `NUCLEO-F103RB` (`bxCAN`) + `SN65HVD230` + RPi `MCP2515`를 사용하므로 **Classic CAN (`500 kbps`, 최대 8B)** 전용 버스로 운용하며, FD 프레임은 사용하지 않는다.
 
 ## 6. 이해 확인
 
 1. 트랜시버가 두 개 있다고 RPi와 STM32 세 대를 모두 연결할 수 있는가? 노드별 컨트롤러·트랜시버를 세어 본다.
 2. ACK가 있는데 상대 UI 값이 바뀌지 않는 경우 어느 계층을 확인할 것인가?
-3. `can0`가 정상인데 cell2 데이터만 끊겼을 때 무엇이 아직 미확인인가?
-4. FD 프레임 64 byte를 Classic 8 byte 프레임에 옮기려면 어떤 신호·전송 규칙이 필요한가?
+3. `can0`가 정상인데 특정 ECU 데이터만 끊겼을 때 무엇이 아직 미확인인가?
+4. Classic CAN `8 byte` 프레임에서 다수의 상태 플래그와 센서값을 배치할 때 어떤 직렬화 규칙이 필요한가?

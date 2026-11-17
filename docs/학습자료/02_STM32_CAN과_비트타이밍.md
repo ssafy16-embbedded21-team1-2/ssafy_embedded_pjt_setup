@@ -7,10 +7,9 @@
 | 대상                    | 컨트롤러                      | 먼저 확인할 것                                               |
 | ----------------------- | ----------------------------- | ------------------------------------------------------------ |
 | NUCLEO-F103RB           | bxCAN, Classic CAN            | APB1 입력 클록·핀/리맵·필터·수신 FIFO·송신 mailbox           |
-| NUCLEO-G474RE           | FDCAN, Classic/FD 모드        | FDCAN kernel clock·분주·nominal/data timing·필터·message RAM |
 | RPi MCP2515 보드인 경우 | SPI 외부 Classic CAN 컨트롤러 | 실제 발진자·SPI CS/IRQ·device tree·드라이버                  |
 
-CPU 주파수를 그대로 CAN 입력 클록으로 사용하지 않는다. bxCAN의 APB1 클록에 타이머용 배수 규칙을 적용하지 않는다. G474의 FDCAN도 실제 kernel clock 경로와 컨트롤러의 분주를 확인한다. [ST bxCAN normal mode 설명](https://community.st.com/stm32-mcus-60/using-can-bxcan-in-normal-mode-with-stm32-microcontrollers-part-2-152668), [ST G474 데이터시트](https://www.st.com/resource/en/datasheet/stm32g474re.pdf)
+CPU 주파수를 그대로 CAN 입력 클록으로 사용하지 않는다. bxCAN의 APB1 클록에 타이머용 배수 규칙을 적용하지 않으며, 실제 APB1 클록 경로와 컨트롤러 분주를 확인한다. [ST bxCAN normal mode 설명](https://community.st.com/stm32-mcus-60/using-can-bxcan-in-normal-mode-with-stm32-microcontrollers-part-2-152668)
 
 ## 2. bitrate를 계산한다
 
@@ -39,14 +38,14 @@ bitrate = 36,000,000 / (4 × 18) = 500,000 bit/s
 sample point = 15 / 18 ≈ 83.3%
 ```
 
-이는 계산 예제이며 보드 설정의 확정값이 아니다. HAL 입력과 레지스터 값의 차이, 케이블 지연·발진자 오차·SJW 제약을 확인한다. 상대 노드가 같은 bitrate를 써도 모든 노드가 같은 prescaler를 쓸 필요는 없다. FD의 data timing은 별도로 계산하고 필요 시 지연 보상 조건도 검토한다. [ST RM0008](https://www.st.com/resource/en/reference_manual/rm0008-stm32f101xx-stm32f102xx-stm32f103xx-stm32f105xx-and-stm32f107xx-advanced-armbased-32bit-mcus-stmicroelectronics.pdf), [ST RM0440](https://www.st.com/resource/en/reference_manual/dm00355726-stm32g4-series-advanced-armbased-32bit-mcus-stmicroelectronics.pdf)
+이는 계산 예제이며 보드 설정의 확정값이 아니다. HAL 입력과 레지스터 값의 차이, 케이블 지연·발진자 오차·SJW 제약을 확인한다. 상대 노드가 같은 bitrate를 써도 모든 노드가 같은 prescaler를 쓸 필요는 없다. [ST RM0008](https://www.st.com/resource/en/reference_manual/rm0008-stm32f101xx-stm32f102xx-stm32f103xx-stm32f105xx-and-stm32f107xx-advanced-armbased-32bit-mcus-stmicroelectronics.pdf)
 
 ## 3. 핀·초기화·수신 경로를 확인한다
 
 1. CubeMX에서 MCU/보드와 CAN 인스턴스를 선택하고 실제 커넥터·핀 충돌·리맵을 대조한다. F103의 기본 CAN PA11/PA12는 USB 등 다른 기능과 충돌할 수 있다.
 2. 외부 트랜시버 전원·TXD/RXD·CANH/L·모드 핀을 확인한다. MCU 내부 loopback은 외부 배선 시험을 대체하지 않는다.
 3. ID 형식·데이터/RTR·필터·FIFO 배정을 정한다. 초기 수신 성공 후 필요한 ID만 받도록 좁힌다.
-4. 컨트롤러 시작, 수신 알림/인터럽트, 오류 알림, 큐·버퍼 크기를 확인한다. bxCAN 필터 설정과 FDCAN 필터 설정을 그대로 복사하지 않는다.
+4. 컨트롤러 시작, 수신 알림/인터럽트, 오류 알림, 큐·버퍼 크기를 확인한다. `bxCAN` 인터럽트 설정(`USB_HP_CAN1_TX_IRQn`, `USB_LP_CAN1_RX0_IRQn`)과 필터 뱅크 배정을 실물 펌웨어와 대조한다.
 5. ISR은 프레임·시각·오류를 상한이 있는 큐로 전달한다. 긴 로그·블로킹 통신·LLM 추론을 ISR에서 수행하지 않는다. 큐 초과도 별도 카운터로 기록한다.
 6. 송신 큐 등록과 실제 송신 완료를 구분하고 mailbox/FIFO 부족·재전송·오류 상태를 기록한다.
 

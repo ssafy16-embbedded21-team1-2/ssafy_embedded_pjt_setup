@@ -27,11 +27,11 @@ ISO-TP를 설치했다고 ECU에 UDS 서버가 생기지 않는다. ECU도 필�
 | Consecutive Frame, CF | 나머지 조각과 순서 정보                      |
 | Flow Control, FC      | 수신 측의 전송 허용·블록 크기·최소 간격 조건 |
 
-Classic CAN·normal addressing·8B 프레임의 기본 SF 형식에서는 PCI 1 byte를 제외해 최대 7 byte의 상위 payload를 담는다. 주소 확장과 CAN FD에서는 형식·사용 길이가 달라진다. **CAN 8 byte가 UDS 데이터 8 byte라는 뜻이 아니다.**
+Classic CAN·normal addressing·8B 프레임의 기본 SF 형식에서는 PCI 1 byte를 제외해 최대 7 byte의 상위 payload를 담는다. **CAN 8 byte가 UDS 데이터 8 byte라는 뜻이 아니다.**
 
 긴 응답은 일반적으로 ECU의 FF → 테스터의 FC → ECU의 CF들로 이어진다. block size와 STmin, 순서 번호·패딩·수신 버퍼·전체 길이·전송 기한을 학습한다. 프레임을 단순 연결하는 자체 코드로 흐름제어·시간 초과를 생략하지 않는다. [Linux ISO-TP 주소·흐름제어 옵션](https://docs.kernel.org/networking/iso15765-2.html)
 
-프로젝트에서는 버스별로 누가 ISO-TP를 종단하는지 정한다. G474가 RPi의 진단 요청을 하위 ECU로 중계할지, 보관한 데이터를 대리 응답할지도 별도 계약이다.
+프로젝트에서는 단일 Classic CAN 버스에서 RPi와 각 ECU(`NUCLEO-F103RB`)가 ISO-TP를 어떻게 종단하고 응답할지 규약으로 정한다.
 
 ## 3. 먼저 배울 UDS 읽기 서비스
 
@@ -75,7 +75,7 @@ Fault 발생 시 최소 문맥을 보관하고 다음 부팅·통신 복귀 후 
 | SWD 접근 불가                   | `debug_access_unavailable`, 확인된 이유와 함께 CAN 증거로 분석 계속 |
 | CAN 단절·ECU 무응답             | 로컬 로그 보존, 기한 후 보고, 통신 복귀 후 재조회·외부 계측·재현    |
 
-`can.bus_state`는 **RPi 어댑터의 로컬 상태**다. G474/F103의 TEC/REC·Bus-Off는 해당 ECU가 제공한 근거가 있어야 판단한다. 같은 버스가 끊겼다면 그 경로로 원격 상태를 즉시 조회할 수 없다는 점도 결과에 포함한다.
+`can.bus_state`는 **RPi 어댑터의 로컬 상태**다. 각 `NUCLEO-F103RB` ECU의 TEC/REC·Bus-Off는 해당 ECU가 UART/CAN으로 제공한 근거(`CAN_ESR` 등)가 있어야 판단한다. 같은 버스가 끊겼다면 그 경로로 원격 상태를 즉시 조회할 수 없다는 점도 결과에 포함한다.
 
 게이트웨이 캐시에는 원본 ECU·원본 경과시간·수집 시각·유효 상태를 유지한다. LLM은 도구가 파싱한 결과를 설명하며 raw hex를 임의 해석해 명령을 만들거나, 접근 불가를 이유로 보호 해제·halt/reset·플래싱을 자동 실행하지 않는다. 제안 API는 [Agent Tool 설계](../설계_장비별기능_및_AgentTool인터페이스.md)를 따른다.
 
