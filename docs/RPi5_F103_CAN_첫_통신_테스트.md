@@ -20,6 +20,9 @@ AI·Docker·UDS·UART 진단 서버 없이 먼저 물리 통신을 확인한다.
 사용자는 F103 펌웨어를 이미 올렸으며 **500kbit/s·ID `0x100`·100ms 주기 송신**, 물리 CAN0·출고 DIP 상태라고 확인했다.
 하지만 MCP2515 SPI probe가 `-110`으로 실패해 `can0`는 생성되지 않았다. CAN 링크 활성화·추가 플래싱·실제 송수신 검증은 미수행이다.
 현재 오류·백업·다음 확인은 [초기 연결 점검 기록](RPi5_CAN_초기_연결_점검_기록.md)을 따른다.
+
+> **[2026-11-17 첫 통신 및 양방향 검증 완료]** 기존 RPi 5의 RP1 GPIO/SPI 불량을 교체 RPi 5(`serial: 6f1e588610c80344`) 교차 시험으로 분리한 뒤, 동일 SD 카드(출고 DIP `spi0-1`+`spi1-1`)와 HAT에서 `can0`/`can1` 500 kbit/s `ERROR-ACTIVE`가 확립됐다. 이후 STM32F103(`hw_test CAN normal v1`)의 `0x100` 100 ms 연속 수신(99프레임, bus-errors 0), `/dev/ttyACM0` 보조 UART 확인, `cansend can0 123#11223344` -> STM32 `rx=1 last=0x123 dlc=4` 양방향 통신까지 검증을 마쳤다(상세: 7절).
+
 아래 `0x510` 코드는 새 시험 펌웨어 예제이며 현재 사용자 펌웨어와 구분한다.
 
 ## 2. 전원을 끄고 연결 확인
@@ -261,3 +264,31 @@ ip -details -statistics link show can0
 
 첫 수신이 확인되면 수신/응답 펌웨어 → 보조 UART 스냅샷 → 사람의 저항 측정 → 현장 고장 케이스 순으로 확장한다.
 세부 설계는 [현장 통신 불량 시나리오](CAN_현장_통신불량_진단_시나리오_설계.md)를 따른다.
+
+---
+
+## 7. 2026-11-17 보드 교체 후 `can0`/`can1` 확립 및 STM32F103 양방향 첫 통신 검증
+
+2026-11-17 KST 교체 RPi 5(`serial: 6f1e588610c80344`, 커널 `6.18.62-v8-16k+`)에 기존 SD 카드와 Seengreat RS485 Dual CAN I HAT를 장착해 `can0`/`can1` 초기화부터 STM32F103(`NUCLEO-F103RB`, ST-LINK UID `066CFF535551836687112626`) 양방향 CAN·UART 확인까지 완료했다.
+
+### 7.1 RPi 5 SocketCAN 활성 상태
+- **부팅 설정 (`config.txt` SHA-256 `fee02cd2f013b68171d8ce9e096f5ab38b764fd1f22a5daab660126bd13a8bc5`)**: 출고 DIP 기준 `spi0-1` + `spi1-1` overlay 적용 상태에서 추가 수정 없이 두 채널 모두 초기화됐다.
+- **인터페이스 상태**:
+  - `can0` (`spi0.1`, IRQ 25): `500 kbit/s` `ERROR-ACTIVE`
+  - `can1` (`spi1.1`, IRQ 24): `500 kbit/s` `ERROR-ACTIVE`
+
+### 7.2 STM32F103 -> RPi 5 (`can0`) 100 ms 주기 수신 확인
+- **10초 `candump` 결과**: `0x100 [4] A5 5A 00 3F`\~`A1` 연속 **99프레임** 수신(약 `100.0 ms` 주기, `bus-errors 0`).
+- **커널/IRQ 카운터**: `can0` `RX packets 101`, IRQ 25 카운트 `0 -> 101`.
+- **증적 파일**: `/var/backups/rpi5-can/recheck-20261117/can-first-rx.log`, `can0-stm32-rx.json`.
+
+### 7.3 `/dev/ttyACM0` 보조 UART 로그 및 과거 오류 분리
+- **5초 캡처 (`/dev/ttyACM0`, `115200 8N1`)**: 매초 `txreq`/`txok`가 `+10/s`씩 증가해 100 ms 송신 성공이 펌웨어 카운터로도 교차 확인됐다.
+- **과거 누적 오류 구분**: 캡처 내 `errcb=1086`, `errcode=0x00001000` 값이 고정 유지되며 증가하지 않았다. 이는 현재 링크 오류가 아니라 과거 미연결 상태에서 누적된 부팅 내 이력이므로, 정상 통신 구간에서는 `txok` 증가와 `errcb` 정체로 분리해 해석해야 한다.
+- **증적 파일**: `/var/backups/rpi5-can/recheck-20261117/stm32-uart-rx.json`.
+
+### 7.4 RPi 5 (`cansend`) -> STM32F103 양방향 RX 검증
+- **송신 명령**: `cansend can0 123#11223344`
+- **관측 결과**: `can0` `TX 1 packet / errors 0`, STM32 `/dev/ttyACM0` UART 로그가 `rx=0`에서 **`rx=1 last=0x123 dlc=4`**로 즉시 갱신됐다.
+- **펌웨어 확인 사실**: 제공 소스 백업의 `.ioc` 설정(`test.ioc`)과 달리 실제 보드에 플래시된 `hw_test CAN normal v1` 펌웨어는 `USB_HP_CAN1_TX_IRQn`과 `USB_LP_CAN1_RX0_IRQn` 인터럽트가 모두 활성 동작 중임이 실측으로 입증됐다.
+- **증적 파일**: `/var/backups/rpi5-can/recheck-20261117/can0-bidirectional-test.json`.

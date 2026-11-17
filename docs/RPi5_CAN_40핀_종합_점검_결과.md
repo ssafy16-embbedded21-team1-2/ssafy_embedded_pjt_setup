@@ -7,6 +7,8 @@ RPi 내부 SPI 루프백은 통과했지만, 하드웨어 SPI와 독립적인 GP
 소프트웨어에서 바꿀 수 있는 CS·모드·속도·리셋 경로를 비교했으며, 다음 원인 분리는 실제 전압·파형 측정 또는 정상 장비와의 교차 시험이 필요하다.
 이 결과만으로 HAT나 RPi의 특정 부품 불량을 확정하지 않는다.
 
+> **[2026-11-17 후속 확정]** 동일 SD 카드와 CAN HAT를 교체 RPi 5(`serial: 6f1e588610c80344`)에 장착해 교차 시험한 결과 `can0`/`can1` 모두 즉시 정상 초기화(500 kbit/s `ERROR-ACTIVE`)됐고 `GPIO21` 이상 드리프트도 사라졌다. 기존 RPi 5의 RP1 GPIO/SPI 하드웨어 불량으로 원인 분리가 확정됐으며, Active Cooler 이식 냉각 검증 및 STM32F103 첫 양방향 CAN 통신도 완료됐다(상세: 12절 및 [첫 CAN 통신 테스트](RPi5_F103_CAN_첫_통신_테스트.md)).
+
 ## 1. 범위와 기준 상태
 
 - 사용자가 HAT를40핀에 다시 장착했다고 확인했다. 이 점검 중 물리 탈착·점퍼 변경은 하지 않았다.
@@ -331,3 +333,25 @@ Sense HAT 라이브러리 설치 이력이나 주석 처리된 설정만으로 G
 **우선순위는 HAT 내부 검사에서 RPi GPIO 출력·측정 환경의 독립 검증으로 옮긴다.**
 RP1 손상과 CAN 실패의 직접 인과관계는 아직 미확정이다.
 정리된 관측·판별 한계·최소 후속 시험은 [GPIO 추가 측정 요약](RPi5_CAN_GPIO_추가_측정_요약.md)에 있다.
+
+---
+
+## 12. 2026-11-17 원격 재점검 및 보드 교차 시험 확정
+
+2026-11-17 KST `pi32`에 재접속해 2026-11-16 보고서 당시 부팅 상태부터 단계별 검증 및 교체 RPi 5와의 보드 교차 시험을 수행했다.
+
+### 12.1 기존 RPi 5 원격 재점검
+- **부팅 상태 확인 (`boot_id: 5677269d-43cd-4cf5-a8de-4cbeed294cd4`)**: 기존 RPi 5의 `/boot/firmware/config.txt`가 `dtparam=spi=off` 상태였음을 확인했다(`config.txt` SHA-256 `a6c7e9a465194a42de49615076419700f3579f883d059199d6b089775718b6bf`).
+- **SPI 및 출고 DIP overlay 복구 검증**: `spi0-0` 설정(`config.txt` SHA-256 `91f4ce04...`, `boot_id: aafcb758-a187-47d8-a59d-3cfafce1d27f`)에 이어 출고 DIP 기준 `spi0-1` + `spi1-1` 설정(`config.txt` SHA-256 `fee02cd2f013b68171d8ce9e096f5ab38b764fd1f22a5daab660126bd13a8bc5`, `boot_id: b9eefb39-aeff-4883-be0d-bb0882b2dbc0`)으로 각각 재부팅해 점검했다.
+- **DT·핀먹스 vs 하드웨어 증상 분리**: Device Tree(`spi@50000`, `spi@54000`)와 `pinmux-pins`·`pinconf-pins` 상 핀 충돌은 없었으나, `mcp251x`는 `-110`으로 실패했고 raw SPI 점검은 `spi0.0`·`spi0.1`·`spi1.0`·`spi1.1` 전 구간에서 `00`을 반환했으며 `GPIO21`은 `lo`에서 `hi`로 드리프트했다.
+- **백업 산출물**: `/var/backups/rpi5-can/recheck-20261117/verification.json`, `verification-factory-dip.json`.
+
+### 12.2 교체 RPi 5 보드 교차 시험 및 원인 확정
+- **교차 조건**: 기존 RPi 5에서 사용하던 동일 SD 카드(`config.txt` SHA-256 `fee02cd2f013b68171d8ce9e096f5ab38b764fd1f22a5daab660126bd13a8bc5`, 커널 `6.18.62-v8-16k+`)와 동일 Seengreat RS485 Dual CAN I HAT를 교체 RPi 5(`serial: 6f1e588610c80344`, `boot_id: cf44000b-9834-4ed6-91ad-da7b3069c4f3`)에 그대로 장착해 부팅했다.
+- **결과**: 소프트웨어 변경 없이 즉시 `can0` (`spi0.1`, IRQ 25)와 `can1` (`spi1.1`, IRQ 24)이 초기화됐고, `500 kbit/s` `ERROR-ACTIVE` 상태로 올라왔으며, `GPIO21`도 `a0 pd | lo` 상태를 안정 유지했다.
+- **최종 결론**: **기존 RPi 5의 RP1 GPIO/SPI 하드웨어 불량으로 확정**됐다. SD 카드, 커널(`6.18.62-v8-16k+`), `config.txt` overlay, Seengreat Dual CAN HAT는 모두 정상이다.
+- **백업 산출물**: `/var/backups/rpi5-can/recheck-20261117/board-swap-verification.json`.
+
+### 12.3 Active Cooler 이식 냉각 검증 및 첫 CAN 통신 완료
+- **Active Cooler 이식 (`boot_id: e78c0c19-3987-42b7-8007-8766250d1d76`)**: 교체 RPi 5에서 `hwmon2` (`pwmfan`), `cooling_device0` (`pwm-fan`) 인식을 확인했고, 유휴 `42.45~45.2°C` (`0` RPM), 4코어 CPU 부하 `12.07s` 기준 `52.35°C` (`2,680` RPM, `pwm1=[0,75]`), 냉각 피크 `53.45°C` / 최고 `2,768` RPM 후 `43.55°C`에서 `0` RPM 복귀, `throttled=["0x0"]`을 확인했다(`cooler-verification.json`).
+- **STM32F103 양방향 CAN/UART 첫 통신**: 교체 RPi 5의 `can0`와 `NUCLEO-F103RB`(`066CFF535551836687112626`) 간 `500 kbit/s` `0x100` 100 ms 연속 수신, `/dev/ttyACM0` 보조 UART 로그, `cansend` -> STM32 `rx=1` 양방향 검증을 완료했다. 상세 수치는 [첫 CAN 통신 테스트](RPi5_F103_CAN_첫_통신_테스트.md) 7절을 따른다.

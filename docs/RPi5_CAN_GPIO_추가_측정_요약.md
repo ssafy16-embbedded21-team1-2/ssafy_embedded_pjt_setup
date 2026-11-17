@@ -9,6 +9,8 @@ RPi 또는 HAT의 하드웨어 고장, GPIO 측정값과 CAN 실패의 직접 �
 이번 정리 중 RPi에 재접속하거나 설정 변경·추가 계측을 수행하지 않았다.
 첨부 보고서의 후속 작업 목록은 권장 사항이며 수행 완료 항목으로 취급하지 않는다.
 
+> **[2026-11-17 후속 검증 확정]** 교체 RPi 5(`serial: 6f1e588610c80344`)와의 보드 교차 시험으로 원인 분리가 완료됐다. 동일 SD 카드와 CAN HAT를 교체 RPi 5에 옮겼을 때 `GPIO21`이 `a0 pd | lo`로 안정 유지되고 `can0`/`can1`이 정상 동작했으며, 기존 RPi 5는 `spi0-0` 및 출고 DIP `spi0-1`+`spi1-1` 복구·DT/pinmux 무충돌 확인 뒤에도 `mcp251x -110` 및 `GPIO21` `lo`->`hi` 드리프트가 재현돼 **기존 RPi 5 RP1 GPIO/SPI 하드웨어 고장**으로 최종 확정됐다(상세: 6절 및 [40핀 종합 점검 결과](RPi5_CAN_40핀_종합_점검_결과.md)).
+
 ## 1. 기존 진단에서 새로 추가된 정보
 
 | 항목 | 첨부 보고서의 관측 | 해석 범위 |
@@ -130,5 +132,13 @@ GPIO 독립 시험을 이어가는 중이라면 CAN용 부팅 설정을 임의�
 
 관련 이력: [40핀 종합 점검 결과](RPi5_CAN_40핀_종합_점검_결과.md),
 [전압 측정 가이드](RPi5_CAN_HAT_전압_측정_가이드.md).
+
+---
+
+## 6. 2026-11-17 재검증 및 보드 교차 시험 결론
+
+1. **기존 RPi 5 재확인**: 당시 `dtparam=spi=off`(`boot_id: 5677269d-43cd-4cf5-a8de-4cbeed294cd4`) 상태에서 `spi0-0` 및 출고 DIP 기준 `spi0-1`+`spi1-1`(`config.txt` SHA-256 `fee02cd2f013b68171d8ce9e096f5ab38b764fd1f22a5daab660126bd13a8bc5`)을 복구하고 `spi@50000`/`spi@54000`·`pinmux-pins`·`pinconf-pins` 무충돌을 확인했으나, `mcp251x -110` 및 raw SPI `00`, `GPIO21` `lo`->`hi` 드리프트가 재현됐다.
+2. **교체 RPi 5 교차 시험 (`serial: 6f1e588610c80344`, `boot_id: cf44000b-9834-4ed6-91ad-da7b3069c4f3`)**: 동일 SD 카드와 Seengreat HAT를 옮긴 직후 `GPIO21`이 `a0 pd | lo`로 안정 유지되고 `can0` (`spi0.1`, IRQ 25)·`can1` (`spi1.1`, IRQ 24) 모두 `500 kbit/s` `ERROR-ACTIVE`로 정상 동작했다.
+3. **최종 분리 결과**: 2026-11-16 보고서에서 의심했던 **기존 RPi 5의 RP1 GPIO/SPI 하드웨어 불량**이 실제 근본 원인으로 확정됐다. SD 카드와 HAT는 정상 판정이며, Active Cooler 이식 및 STM32F103 첫 통신까지 완료했다(증적: `/var/backups/rpi5-can/recheck-20261117/verification.json`, `verification-factory-dip.json`, `board-swap-verification.json`).
 
 [mcp2515]: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf

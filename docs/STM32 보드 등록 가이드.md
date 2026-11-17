@@ -81,6 +81,4 @@ pyocd commander --no-config --target "$TARGET" --uid "$STLINK_UID" \
 
 ## 작성 예시 참고
 
-전용 타깃 설치 전후의 과거 수집 예시는 별도로 보관한 `RPi5_STM32_연결_정보.md`를 참고하세요.
-현재 레포에는 해당 보드별 기록이 없습니다. 당시 F103RB는 실물 접속까지 확인했고 G474RE는 팩 등록과
-정의 확인까지만 수행했습니다. 등록할 보드의 현재 검증 결과를 별도로 작성합니다.
+실물 보드 수집 기록은 [NUCLEO-F103RB 보드 기록 (`066CFF535551836687112626`)](board_records/20261106_066CFF535551836687112626/README.md)을 참고하세요. 해당 디렉터리에는 2026-11-06 SWD/DFP 수집 원시 데이터([collection.json](board_records/20261106_066CFF535551836687112626/collection.json), [commander.txt](board_records/20261106_066CFF535551836687112626/commander.txt))와 2026-11-17 CAN/UART 실측 이력이 함께 정리돼 있습니다. 전용 타깃 설치 전후의 과거 수집 예시는 별도로 보관한 `RPi5_STM32_연결_정보.md`를 참고하며, 신규 보드를 추가할 때는 위 템플릿에 따라 별도 디렉터리로 작성합니다.

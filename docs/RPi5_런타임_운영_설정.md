@@ -111,3 +111,20 @@ sudo systemctl restart rpi5-agent-llama.service
 Agent의 `.env`는 변경 전 SHA-256과 대조해 보존 여부를 확인했습니다. RPi Agent 저장소의 소스 파일은 수정하지 않았습니다. 전체 검증 요약은 백업 디렉터리의 `verification.json`에도 기록했습니다.
 
 추론 직후 RPi 온도는 83.4°C, `get_throttled=0xe0008`이었습니다. 당시 현재 soft temperature limit 비트가 설정되어 있었으며, 장시간 추론에는 냉각 보완이 필요합니다. 16:23 KST 최종 점검에서는 63.7°C, `0xe0000`으로 현재 제한 비트가 해제된 것을 확인했습니다. 이번 작업은 메모리 제한과 자동 시작을 적용한 것이며 냉각 장치를 변경하지 않았습니다.
+
+## 2026-11-17 보드 교체 및 Active Cooler·CAN 설정 반영
+
+2026-11-17 RP1 GPIO/SPI 하드웨어 불량이 확인된 기존 Raspberry Pi 5 본체를 교체하고, 기존 SD 카드(`config.txt` SHA-256 `fee02cd2f013b68171d8ce9e096f5ab38b764fd1f22a5daab660126bd13a8bc5`)와 Active Cooler, Seengreat RS485 Dual CAN I HAT를 새 RPi 5로 이식해 검증했습니다.
+
+| 항목 | 2026-11-17 검증 값 |
+| --- | --- |
+| 교체 RPi 5 시리얼 | `6f1e588610c80344` |
+| 부팅 커널 / 검증 `boot_id` | `6.18.62-v8-16k+` / 냉각 시험 `e78c0c19-3987-42b7-8007-8766250d1d76` |
+| Active Cooler 장치 인식 | `hwmon2` (`pwmfan`), `cooling_device0` (`pwm-fan`) |
+| 유휴 온도 / 팬 상태 | `42.45~45.2°C` / `0` RPM |
+| 4코어 CPU 부하 (12.07s) | 도달 온도 `52.35°C`, 팬 최고 `2,680` RPM, `pwm1=[0,75]` |
+| 냉각 구간 피크 / 복귀 | 피크 `53.45°C`, 최고 `2,768` RPM, `43.55°C`에서 `0` RPM 복귀 |
+| 스로틀링 플래그 | `throttled=["0x0"]` (스로틀링 없음) |
+| 활성 CAN 부팅 설정 | 출고 DIP 기준 `spi0-1` + `spi1-1` (`can0` IRQ 25, `can1` IRQ 24, `500 kbit/s` `ERROR-ACTIVE`) |
+
+관련 검증 산출물은 원격 RPi 5의 `/var/backups/rpi5-can/recheck-20261117/cooler-verification.json` 및 `board-swap-verification.json`에 저장했습니다. 이 문서의 Docker 런타임 메모리 제한(`cgroup_enable=memory`) 및 `rpi5-agent-llama.service` 검증 자체는 2026-11-05 기존 보드 기준 기록이며, 교체 보드에서의 장시간 LLM 추론 재측정은 별도 확인이 필요합니다.
