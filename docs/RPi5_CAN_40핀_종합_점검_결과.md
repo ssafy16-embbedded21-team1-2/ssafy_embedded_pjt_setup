@@ -12,7 +12,7 @@ RPi 내부 SPI 루프백은 통과했지만, 하드웨어 SPI와 독립적인 GP
 ## 1. 범위와 기준 상태
 
 - 사용자가 HAT를40핀에 다시 장착했다고 확인했다. 이 점검 중 물리 탈착·점퍼 변경은 하지 않았다.
-- boot ID: `07694307-f288-4da4-8e2b-b42e58f3dc68`. RPi 표시 시각은 약17:09~17:20 KST다.
+- boot ID: `07694307-f288-4da4-8e2b-b42e58f3dc68`. RPi 표시 시각은 약17:09\~17:20 KST다.
 - OS: Debian13 / Raspberry Pi 커널 `6.18.60+rpt-rpi-2712`, aarch64.
 - 사용자 확인 DIP: `P11 ON / P10 OFF / P6 ON / P23 OFF / P0 ON / P1 OFF / P3 OFF / P5 ON`.
 - 사용자 확인 로직 선택:3.3V. 실제 `V-IO` 전압을 측정한 것은 아니다.
@@ -123,7 +123,7 @@ V1.2 회로도의18핀 MCP2515 U4/U5 기준 VDD=18번, VSS=9번, RESET=17번이�
 - SPI master는 원래의 `spi0`만 남았다.
 - SPI0 컨트롤러를 `dw_spi_mmio`에 다시 바인딩했다.
 - `spi0.0=spidev`, `spi0.1=초기화 실패로 미바인딩`인 시작 상태로 돌아왔다. override는 모두 비웠다.
-- GPIO9~11의 SPI 기능·no-pull, GPIO7/8 pull-up, GPIO17~21·24의 원래 none/pull-down을 복원했다.
+- GPIO9\~11의 SPI 기능·no-pull, GPIO7/8 pull-up, GPIO17\~21·24의 원래 none/pull-down을 복원했다.
 - 시험용 GPIO consumer가 남지 않았고 Qwen·Agent의 실행 상태를 재확인했다.
 
 SPI1 runtime overlay의 적용·제거 시 커널의 속성 제거 관련 경고가 남았으나,
@@ -147,7 +147,7 @@ RPi의 다음 디렉터리에 root 전용으로 보관했다.
 | `software-spi1.json` | GPIO 직접 제어24회·핀 원복 |
 | `final-state.json` | 최종 해시·장치·GPIO consumer·서비스·온도·장치 트리 확인 |
 
-SPI0 원본의 선택적 내부 루프백 항목에는 Python `spidev.mode` setter가0~3만 허용해 거부한 오류가 포함돼 있다.
+SPI0 원본의 선택적 내부 루프백 항목에는 Python `spidev.mode` setter가0\~3만 허용해 거부한 오류가 포함돼 있다.
 이는 내부 루프백의 하드웨어 실패 판정이 아니다. 이후 Linux ioctl 경로로 별도 수행해6회 통과했고 해당 JSON에 보관했다.
 
 이전 진행: [초기 연결 점검 기록](RPi5_CAN_초기_연결_점검_기록.md).
@@ -285,7 +285,7 @@ boot ID `421f3543-7566-4558-8599-9cf8cc960e93`에서 설정·장치 트리·점�
 | 실제 장치 트리 | Sense HAT·관련 센서 compatible 노드 없음 |
 | HAT 자동 식별 정보 | `/proc/device-tree/hat` 메타데이터 없음 |
 | I2C 장치 등록 | 어댑터만 보이며 Sense HAT 장치 등록 없음 |
-| GPIO 기능 | GPIO9~11은 SPI0, GPIO19~21은 SPI1 기능 |
+| GPIO 기능 | GPIO9\~11은 SPI0, GPIO19\~21은 SPI1 기능 |
 | CS 점유 | GPIO7/8은 SPI0, GPIO16/17/18은 SPI1의 CS consumer |
 | GPIO23·IRQ | GPIO23은 none, GPIO24/25는 입력. Sense HAT consumer 없음 |
 | 모듈·서비스 | 로드된 모듈과 unit 이름에서 Sense HAT 관련 항목 미발견 |
@@ -320,7 +320,7 @@ Sense HAT 라이브러리 설치 이력이나 주석 처리된 설정만으로 G
 - U4 VDD·RESET#는 각각 3.3V로 보고됐다. U5의 개별 측정값은 없다.
 - CAN0 SI·SO·SCK·선택 CS 경로가 도통했고, MOSI·MISO·SCLK 사이는 1MΩ 이상이었다.
 - HAT를 제거한 SPI0·SPI1 외부 루프백 성공이 보고됐다.
-- HAT 제거 상태에서 GPIO8은 0.7~1.0V, GPIO11·21은 약 1V의 출력 LOW 전압이 보고됐다.
+- HAT 제거 상태에서 GPIO8은 0.7\~1.0V, GPIO11·21은 약 1V의 출력 LOW 전압이 보고됐다.
 - GPIO7·10·17의 LOW는 약 0V였다.
 - GPIO21을 실행 중인 `gpioset`으로 점유한 상태에서도 약 1V가 측정됐다고 한다.
 

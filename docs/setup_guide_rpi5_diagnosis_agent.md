@@ -54,9 +54,9 @@ chmod +x setup_rpi5_env.sh
 | `./setup_rpi5_env.sh --tools`          | OpenOCD, GDB-multiarch, stlink-tools, PyOCD, DFP 타깃 팩, udev 권한 설정만 설치             |        약 1\~2분        |
 | `./setup_rpi5_env.sh --targets`        | 기존 PyOCD에 `NUCLEO-F103RB` 전용 타깃 팩만 설치하고 인식 여부 검증           |   네트워크 속도 의존    |
 | `./setup_rpi5_env.sh --llama`          | llama.cpp 소스 클론, Cortex-A76 멀티코어 최적화 컴파일, `/usr/local/bin` 전역 설치          |        약 3\~4분        |
-| `./setup_rpi5_env.sh --model qwen3b`   | **Qwen 2.5 3B Instruct** (`Q4_K_M`, ~2.0GB) 다운로드 (추천 1순위)                           |   네트워크 속도 의존    |
-| `./setup_rpi5_env.sh --model qwen3_4b` | **Qwen 3 4B** (`Q4_K_M`, ~2.4GB) 다운로드 (심층 추론 모드)                                  |   네트워크 속도 의존    |
-| `./setup_rpi5_env.sh --model all`      | 3B 및 4B 모델 2종 모두 다운로드 (~4.4GB)                                                    |   네트워크 속도 의존    |
+| `./setup_rpi5_env.sh --model qwen3b`   | **Qwen 2.5 3B Instruct** (`Q4_K_M`, \~2.0GB) 다운로드 (추천 1순위)                           |   네트워크 속도 의존    |
+| `./setup_rpi5_env.sh --model qwen3_4b` | **Qwen 3 4B** (`Q4_K_M`, \~2.4GB) 다운로드 (심층 추론 모드)                                  |   네트워크 속도 의존    |
+| `./setup_rpi5_env.sh --model all`      | 3B 및 4B 모델 2종 모두 다운로드 (\~4.4GB)                                                    |   네트워크 속도 의존    |
 | `./setup_rpi5_env.sh --scripts`        | `~/scripts` 폴더에 대화/서버/SWD 검증 헬퍼 스크립트 배포                                    |           1초           |
 | `./setup_rpi5_env.sh --verify`         | 바이너리, 모델, USB 권한, ST-Link 및 Docker 데몬·플러그인·메모리 제한 지원 점검             |    환경에 따라 다름     |
 

@@ -18,8 +18,8 @@ DBC는 ID·길이·신호 배치·부호·배율·단위 등의 정의에 사용
 
 | 바이트 | 신호           | 자료형 | factor·단위     | invalid raw                                       |
 | ------ | -------------- | ------ | --------------- | ------------------------------------------------- |
-| 0~1    | PackVoltage    | uint16 | 1 mV            | `0xFFFF`                                          |
-| 2~3    | PackCurrent    | int16  | 10 mA           | `0x8000`                                          |
+| 0\~1    | PackVoltage    | uint16 | 1 mV            | `0xFFFF`                                          |
+| 2\~3    | PackCurrent    | int16  | 10 mA           | `0x8000`                                          |
 | 4      | SOC            | uint8  | 1%              | `0xFF`                                            |
 | 5      | MaxTemperature | int8   | 1 degC          | `0x7F`                                            |
 | 6      | BmsFlags       | uint8  | 상태 비트       | bit0 저전압·bit1 과온·bit2 센서 이상, 나머지 예약 |

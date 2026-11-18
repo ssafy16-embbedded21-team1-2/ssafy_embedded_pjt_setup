@@ -117,9 +117,9 @@ CAN 비트 타이밍은 MCU별 peripheral clock·prescaler·segment·SJW와 실�
 | --- | --- | --- |
 | 0 | schema | uint8, 현재 1 |
 | 1 | node | uint8, ID와 node 대응 검사 |
-| 2~3 | sequence | uint16 little-endian, 새 샘플마다 증가, 65535 다음 0 |
-| 4~5 | test_value | uint16 little-endian, 단위 `test_unit` |
-| 6 | flags | bit0=value_valid, bit1~7 예약 0 |
+| 2\~3 | sequence | uint16 little-endian, 새 샘플마다 증가, 65535 다음 0 |
+| 4\~5 | test_value | uint16 little-endian, 단위 `test_unit` |
+| 6 | flags | bit0=value_valid, bit1\~7 예약 0 |
 | 7 | reserved | 0 |
 
 길이 8B·schema·node·유효 플래그가 맞는 프레임만 표시 최신 시각을 갱신한다.
@@ -374,7 +374,7 @@ ACK 부족만으로 반드시 Bus-Off가 된다고 기대하지 않는다. Bus-O
 | --- | --- | --- | --- |
 | 1 | 2노드 CAN·정상 텔레메트리·UART 식별 구현 | 원본 수집·보드 매핑·표시 상태 구현 | 정답 바이트·정상 로그·실물 매핑 일치 |
 | 2 | 비차단 스냅샷·설정·오류 지원 범위 구현 | 응답 파서·검증·2표본 차분 구현 | CAN 실패 중 UART 응답, 미지원과 0 구분 |
-| 3 | 종단 지그·안전한 설정/송신 주입과 원복 | 측정 입력·후보 규칙·재검증 기록 | FIELD-00~07 중 채택 범위를 3회씩 실행 |
+| 3 | 종단 지그·안전한 설정/송신 주입과 원복 | 측정 입력·후보 규칙·재검증 기록 | FIELD-00\~07 중 채택 범위를 3회씩 실행 |
 | 4 | 허용된 루프백·기한·원복 구현 | 상태 변경 허용·job 결과 처리 | FIELD-08 및 timeout·원복 실패 처리 |
 | 5 | 3번째 보드·트랜시버 추가 | 3장비 비교·세 값 표시 | 3노드에서도 같은 계층별 기준 충족 |
 
