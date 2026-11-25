@@ -4,7 +4,7 @@
 >
 > **[2026-11-17 프로젝트 적용 범위]** 2026-11-16\~17 결정(`PJT-15`, `PJT-16`)에 따라 `NUCLEO-G474RE` 도메인 게이트웨이 및 CAN FD·FOC·Dual-Bank·FFT 확장은 제외됐다. 현재 구성은 **보드 A(열관리 제어기, NUCLEO-F103RB) + 보드 B(스마트 냉각팬 ECU, NUCLEO-F103RB) + RPi 5(`can0`)** 단일 Classic CAN(`500 kbps`) 버스 및 보조 UART(`/dev/ttyACM*`) 구조다. RPi 5 실측(`can0` `500 kbit/s` + `/dev/ttyACM0`)에 맞춘 Agent 연동 구현 설계는 `RPI5_Agent_Docker/docs/실측_CAN_UART_연동_설계.md`에 정리했다.
 >
-> **기준 문서**: [CAN 아키텍처 설계](차량용_CAN_통신_도입_및_아키텍처_설계.md), [(OLD) 진단 Agent 아키텍처](%28OLD%29아키텍처_v2_RPi-STM32_진단Agent.md)
+> **기준 문서**: [CAN 아키텍처 설계](차량용_CAN_통신_도입_및_아키텍처_설계.md), [(OLD) 진단 Agent 아키텍처](../archive/%28OLD%29아키텍처_v2_RPi-STM32_진단Agent.md)
 >
 > **문서 상태**: 인터페이스 제안 및 미구현 설계 범위 포함 (`tool_can`, `tool_swd`, `tool_analyzer`, `serial.*` 등). 통신 신호·메시지 ID·임계치 확정은 임베디드 파트 합의(`PJT-16`) 대기.
 >
@@ -250,7 +250,7 @@ L2는 `NUCLEO-F103RB` 대상 증거 수집을 우선하며 SWD 없이 종료할 
 - **능동 진단 메시지 (`TBD`)**: `0x380`/`0x300` (`UDS + ISO-TP`) vs 8B 단일 프레임(`DIAG_REQ`/`B_DIAG_RESP`), DID 번호·엔디안은 팀 합의 대기.
 - **가상 벤치 호환 프레임**: `0x200` (`BMS_STATUS`), `0x300` (`BODY_STATUS`), `0x400` (`CLUSTER_FEEDBACK`)은 `RPI5_Agent_Docker` 가상 fixture 검증용.
 
-회의 진행과 상세 명세·결정·담당자 기록은 [CAN 통신 규약 합의 회의 템플릿](CAN_통신규약_합의_회의_템플릿.md)을 사용합니다.
+회의 진행과 상세 명세·결정·담당자 기록은 [CAN 통신 규약 합의 회의 템플릿](../meetings/CAN_통신규약_합의_회의_템플릿.md)을 사용합니다.
 
 ---
 

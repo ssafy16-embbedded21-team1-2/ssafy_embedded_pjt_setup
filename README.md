@@ -4,20 +4,20 @@
 
 본 저장소는 SSAFY 임베디드 특화 프로젝트를 위한 **Raspberry Pi 5 - STM32 진단 Agent 및 원격 개발 벤치**의 환경 설정 스크립트, 문서, 벤치마크 결과를 독립적으로 관리하는 전용 작업 공간입니다.
 
-**STM32 개발을 바로 시작하려면** [STM32 빠른 시작 가이드](docs/STM32_빠른_시작.md)를 참고하세요. Windows 도구 설치, `NUCLEO-F103RB` 예제 빌드, VS Code 및 CubeIDE 사용법이 포함되어 있습니다.
+**STM32 개발을 바로 시작하려면** [STM32 빠른 시작 가이드](docs/guides/STM32_빠른_시작.md)를 참고하세요. Windows 도구 설치, `NUCLEO-F103RB` 예제 빌드, VS Code 및 CubeIDE 사용법이 포함되어 있습니다.
 
 **현재 우선 목표**는 장비·펌웨어·통신 명세·정상 기준을 충분히 확보한 환경의 진단 검증입니다.
-[장비 정보 기반 검증 계획](docs/장비_정보_기반_검증_계획.md)에 준비 자료·첫 범위·계층별 완료 기준과 검증 케이스 양식을 정리했습니다.
+[장비 정보 기반 검증 계획](docs/architecture/장비_정보_기반_검증_계획.md)에 준비 자료·첫 범위·계층별 완료 기준과 검증 케이스 양식을 정리했습니다.
 정보가 부족한 장비의 규약 추정·범용 로그 분석은 후속 검토 범위입니다.
 
-임베디드 팀과 구현할 첫 현장 사례는 [CAN 통신 불량 진단 시나리오](docs/CAN_현장_통신불량_진단_시나리오_설계.md)를 참고하세요.
+임베디드 팀과 구현할 첫 현장 사례는 [CAN 통신 불량 진단 시나리오](docs/architecture/CAN_현장_통신불량_진단_시나리오_설계.md)를 참고하세요.
 2대→3대의 시험 구성, CAN 텔레메트리·보조 UART 초안, 종단 측정·루프백 한계, 고장 주입과 복구 확인 기준을 담았습니다.
 
-**제품 운용 진단 설계**는 [CAN 아키텍처 v3.4](docs/차량용_CAN_통신_도입_및_아키텍처_설계.md)와 [Agent Tool 인터페이스 v3.4](docs/설계_장비별기능_및_AgentTool인터페이스.md)를 기준으로 합니다. 2026-11-16\~17 결정(`PJT-15`, `PJT-16`)으로 `NUCLEO-G474RE` 및 CAN FD 게이트웨이는 배제하고 **보드 A(열관리 제어기, F103RB) + 보드 B(스마트 냉각팬 ECU, F103RB) + RPi 5(`can0`)** 단일 Classic CAN 버스로 일원화했으며, RPi 5 실측 기반 즉시 연동 설계는 `RPI5_Agent_Docker/docs/실측_CAN_UART_연동_설계.md`에 정리되어 있습니다. ECU 상태·DTC·부팅/크래시 기록은 CAN(및 벤치 보조 UART)으로 조회하며 SWD는 개발·벤치에서 선택적으로 사용합니다. DID·메시지 ID·임계치는 [CAN 통신 규약 합의 회의 템플릿](docs/CAN_통신규약_합의_회의_템플릿.md) 및 임베디드 팀(`PJT-16`) 합의로 확정합니다.
+**제품 운용 진단 설계**는 [CAN 아키텍처 v3.4](docs/architecture/차량용_CAN_통신_도입_및_아키텍처_설계.md)와 [Agent Tool 인터페이스 v3.4](docs/architecture/설계_장비별기능_및_AgentTool인터페이스.md)를 기준으로 합니다. 2026-11-16\~17 결정(`PJT-15`, `PJT-16`)으로 `NUCLEO-G474RE` 및 CAN FD 게이트웨이는 배제하고 **보드 A(열관리 제어기, F103RB) + 보드 B(스마트 냉각팬 ECU, F103RB) + RPi 5(`can0`)** 단일 Classic CAN 버스로 일원화했으며, RPi 5 실측 기반 즉시 연동 설계는 `RPI5_Agent_Docker/docs/실측_CAN_UART_연동_설계.md`에 정리되어 있습니다. ECU 상태·DTC·부팅/크래시 기록은 CAN(및 벤치 보조 UART)으로 조회하며 SWD는 개발·벤치에서 선택적으로 사용합니다. DID·메시지 ID·임계치는 [CAN 통신 규약 합의 회의 템플릿](docs/meetings/CAN_통신규약_합의_회의_템플릿.md) 및 임베디드 팀(`PJT-16`) 합의로 확정합니다.
 
 **프로젝트와 함께 CAN을 학습하려면** [CAN 학습 자료](docs/학습자료/README.md)를 참고하세요. 물리 버스·프레임·오류, STM32 비트 타이밍, SocketCAN/vcan 실습, 신호 규약·DBC, ISO-TP/UDS와 SWD 없는 제품 진단을 순서대로 다룹니다.
 
-**확장 보드와 F103의 실제 통신을 확인하려면** [RPi5–F103 첫 CAN 시험](docs/RPi5_F103_CAN_첫_통신_테스트.md)을 따릅니다.
+**확장 보드와 F103의 실제 통신을 확인하려면** [RPi5–F103 첫 CAN 시험](docs/hardware/RPi5_F103_CAN_첫_통신_테스트.md)을 따릅니다.
 2026-11-17 보드 교차 시험을 통해 기존 RPi 5의 RP1 GPIO/SPI 하드웨어 불량을 분리한 뒤, 교체 RPi 5(`serial: 6f1e588610c80344`)에서 `can0`/`can1` `500 kbit/s` `ERROR-ACTIVE`, Active Cooler 이식 냉각 검증, STM32F103 `0x100` 수신·`/dev/ttyACM0` 보조 UART·`cansend` 양방향 통신까지 완료했습니다.
 
 ---
@@ -39,26 +39,15 @@ ssafy_embedded_pjt_setup/
 │   ├── prompt_robot_qwen.txt      # 진단 Agent용 시스템 프롬프트 (Qwen 2.5용)
 │   └── prompt_robot_qwen3.txt     # 진단 Agent용 시스템 프롬프트 (Qwen 3용)
 │
-├── docs/                          # 상세 기술 문서 및 벤치마크 리포트
-│   ├── 차량용_CAN_통신_도입_및_아키텍처_설계.md  # [설계 v3.4] F103RB 단일 Classic CAN 분산 ECU 벤치 아키텍처
-│   ├── 설계_장비별기능_및_AgentTool인터페이스.md # [설계 v3.4] F103RB 보드 A/B 기능·증거·Agent Tool 인터페이스
-│   ├── CAN_현장_통신불량_진단_시나리오_설계.md  # 현장 CAN 통신 불량 진단 시나리오 및 1차 실측 합의값
-│   ├── RPi5_F103_CAN_첫_통신_테스트.md       # [완료] RPi 5 <-> NUCLEO-F103RB 첫 CAN/UART 양방향 검증
-│   ├── RPi5_CAN_40핀_종합_점검_결과.md       # CAN HAT 40핀 점검 및 2026-11-17 보드 교차 시험·쿨러 검증 확정
-│   ├── RPi5_CAN_GPIO_추가_측정_요약.md       # GPIO 추가 측정 대조 및 기존 RPi 5 RP1 고장 분리 확정
-│   ├── RPi5_CAN_초기_연결_점검_기록.md       # 초기 연결 점검 및 2026-11-17 해결 반영
-│   ├── RPi5_런타임_운영_설정.md              # cgroup 메모리 제한·systemd 및 2026-11-17 보드 교체·쿨러 설정
-│   ├── STM32 보드 등록 가이드.md             # ST-LINK/pyOCD/SVD 기반 STM32 보드 등록 절차 및 예시 링크
-│   ├── board_records/                        # 실물 보드 수집 이력 및 보드별 README
-│   ├── tailscale_초간단_설치_가이드.md       # [네트워크] Tailscale 미설정 팀원을 위한 초간단 3분 설치 가이드 ⭐
-│   ├── stm32_개발_환경_구축_가이드.md          # [가이드] NUCLEO-F103RB 개발 환경 및 Classic CAN 설정 (CubeIDE / VS Code) ⭐
-│   ├── stm32_디버깅_작업_가이드.md          # [가이드] NUCLEO-F103RB SWD 코어 디버깅 & Classic CAN·UART 진단 매뉴얼 ⭐
-│   ├── setup_guide_rpi5_diagnosis_agent.md  # [매뉴얼] RPi5 신규 보드 환경 구축 가이드
-│   ├── (OLD)아키텍처_v2_RPi-STM32_진단Agent.md # 이전 USB/SWD 직결 벤치 설계 보관본
-│   ├── qwen2.5_3b_rpi5.md                   # [벤치마크] Qwen 2.5 3B 실측 성능 보고서 (추천 1순위)
-│   ├── qwen3_4b_rpi5.md                     # [벤치마크] Qwen 3 4B 실측 성능 보고서
-│   ├── gemma3_1b_rpi5.md                    # [참고] Gemma 3 1B 실측 보고서
-│   └── gemma3_1b_jetson_vs_rpi5.md          # [참고] Jetson Nano vs RPi 5 비교 보고서
+├── docs/                          # 상세 기술 문서 및 벤치마크 리포트 (전체 목차: docs/README.md)
+│   ├── architecture/              # 아키텍처 v3.4 · Agent Tool 설계 · 진단 시나리오 · 검증 계획
+│   ├── guides/                    # STM32 · RPi 5 · Tailscale 구축, 운영 및 실물 보드 등록 가이드
+│   ├── hardware/                  # RPi 5 CAN HAT 핀·전압·통신 실측 기록, CLI 명령어, 부품 목록
+│   ├── benchmarks/                # Qwen 2.5 3B · Qwen 3 4B · Gemma 3 1B 온디바이스 SLM 벤치마크
+│   ├── meetings/                  # CAN 통신 규약 합의 회의 템플릿 · 아키텍처 호환성 검토
+│   ├── 학습자료/                  # CAN · STM32 · SocketCAN · DBC · ISO-TP/UDS 학습 자료
+│   ├── board_records/             # 실물 보드 수집 이력 및 보드별 README
+│   └── archive/                   # 이전 v2 USB/SWD 직결 설계 보관본
 │
 └── utils/                         # PC(Windows) 측 보조 유틸리티
     ├── ssh_rpi.ps1                # 기기별 Tailscale IP(100.x.y.z) 또는 USB(10.12.194.1) 원격 SSH 접속기
@@ -166,7 +155,7 @@ python3 ~/ssafy_embedded_pjt_setup/scripts/poc_swd_test.py
 ## 6. 네트워크 연결 및 기기별 Tailscale IP 설정 안내
 
 > [!TIP]
-> **아직 RPi 5에 Tailscale을 설치하지 않은 팀원**은 단계별 쉬운 설치 매뉴얼인 **[`docs/tailscale_초간단_설치_가이드.md`](docs/tailscale_초간단_설치_가이드.md)**를 먼저 확인해 주세요! (USB-C 케이블 직결을 통한 초기 설정부터 로그인까지 3분 완성)
+> **아직 RPi 5에 Tailscale을 설치하지 않은 팀원**은 단계별 쉬운 설치 매뉴얼인 **[`docs/guides/tailscale_초간단_설치_가이드.md`](docs/guides/tailscale_초간단_설치_가이드.md)**를 먼저 확인해 주세요! (USB-C 케이블 직결을 통한 초기 설정부터 로그인까지 3분 완성)
 
 <!-- 별개의 안내 블록 -->
 

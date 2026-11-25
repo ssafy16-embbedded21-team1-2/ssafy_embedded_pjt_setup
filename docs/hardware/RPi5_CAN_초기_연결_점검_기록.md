@@ -220,7 +220,7 @@ SPI0_MISO의 원래 alternate function과 no-pull 상태로 즉시 복원했다.
 이는 GPIO 입력이 이 시험에서 low에 고정되지 않았다는 근거이며 외부 SPI 응답·접점·핀 전체 정상의 보장은 아니다.
 원본은 위 증거 디렉터리의 `miso-input-bias.json`이다.
 
-외부 점퍼 시험용 [스크립트](../scripts/poc_rpi_spi_loopback.py)를 준비했다.
+외부 점퍼 시험용 [스크립트](../../scripts/poc_rpi_spi_loopback.py)를 준비했다.
 HAT를 완전히 분리하고 **RPi 물리 핀19(GPIO10/MOSI)와21(GPIO9/MISO)**를 연결한 뒤에만 실행한다.
 그 사이의 짝수 핀20은 GND이며 연결 대상이 아니다. 탈착·점퍼 변경은 전원 분리 상태에서 한다.
 

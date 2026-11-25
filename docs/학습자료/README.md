@@ -16,7 +16,7 @@ AI 파트는 1 → 3 → 4 → 5를 먼저 실습하고, 2의 클록·수신 버
 
 ## 2. 현재 장비와 학습 범위
 
-[구매 목록](../부품_구매_목록.csv)에 있는 SN65HVD230 2개로 STM32 두 대의 Classic CAN 접속을 준비할 수 있다. RPi의 RS485 CAN 확장 보드는 실물 모델·회로·컨트롤러·발진자를 확인한다. MCP2515 모델이면 Classic CAN용이다. SN65HVD230은 3.3V, 최대 1 Mbps 사양이므로 CAN FD의 2 Mbps 데이터 구간을 구성하는 부품으로 간주하지 않는다. [TI 제품 사양](https://www.ti.com/product/SN65HVD230), [Waveshare 해당 모델 설명](https://www.waveshare.com/wiki/RS485_CAN_HAT)
+[구매 목록](../hardware/부품_구매_목록.csv)에 있는 SN65HVD230 2개로 STM32 두 대의 Classic CAN 접속을 준비할 수 있다. RPi의 RS485 CAN 확장 보드는 실물 모델·회로·컨트롤러·발진자를 확인한다. MCP2515 모델이면 Classic CAN용이다. SN65HVD230은 3.3V, 최대 1 Mbps 사양이므로 CAN FD의 2 Mbps 데이터 구간을 구성하는 부품으로 간주하지 않는다. [TI 제품 사양](https://www.ti.com/product/SN65HVD230), [Waveshare 해당 모델 설명](https://www.waveshare.com/wiki/RS485_CAN_HAT)
 
 첫 실물 목표는 **RPi + CAN 보드(`MCP2515` `can0`) + `NUCLEO-F103RB` 두 대(보드 A/B)를 하나의 Classic CAN(`500 kbps`) 버스에 연결해 상태·오류 카운터를 수집하는 것**이다. 기존 검토안의 G474RE 게이트웨이 및 CAN FD 백본 구성은 2026-11-17 기준 프로젝트에서 제외됐다.
 
@@ -39,10 +39,10 @@ AI 파트는 1 → 3 → 4 → 5를 먼저 실습하고, 2의 클록·수신 버
 
 ## 4. 설계·회의 문서에 반영하기
 
-학습 중 발견한 정책 선택은 [CAN 규약 회의 템플릿](../CAN_통신규약_합의_회의_템플릿.md)의 결정·미결 표에 남긴다. 예제 숫자를 그대로 복사해 확정하지 않는다.
+학습 중 발견한 정책 선택은 [CAN 규약 회의 템플릿](../meetings/CAN_통신규약_합의_회의_템플릿.md)의 결정·미결 표에 남긴다. 예제 숫자를 그대로 복사해 확정하지 않는다.
 
-- [CAN 아키텍처 설계](../차량용_CAN_통신_도입_및_아키텍처_설계.md): 버스 구성과 ECU 내부 진단 기록.
-- [장비·Agent Tool 설계](../설계_장비별기능_및_AgentTool인터페이스.md): 수집 결과·오류 상태·SLM 입력 계약.
-- [STM32 디버깅 가이드](../stm32_디버깅_작업_가이드.md): 접근 가능한 개발·벤치의 추가 분석.
+- [CAN 아키텍처 설계](../architecture/차량용_CAN_통신_도입_및_아키텍처_설계.md): 버스 구성과 ECU 내부 진단 기록.
+- [장비·Agent Tool 설계](../architecture/설계_장비별기능_및_AgentTool인터페이스.md): 수집 결과·오류 상태·SLM 입력 계약.
+- [STM32 디버깅 가이드](../guides/stm32_디버깅_작업_가이드.md): 접근 가능한 개발·벤치의 추가 분석.
 
 첫 통합까지는 버스·규약·수신·진단에 집중한다. CANopen/J1939, 전체 AUTOSAR 스택, XCP, 고급 FD 신호 무결성은 해당 기능을 실제 범위로 선택한 뒤 확장 학습한다.
