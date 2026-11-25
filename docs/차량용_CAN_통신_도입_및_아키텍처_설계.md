@@ -63,8 +63,8 @@ flowchart TB
 | 제어기 명칭 | 하드웨어 보드 | 코어 / 클록 | 통신 프로토콜 | 담당 도메인 및 기능 |
 | :-------------------- | :----------------- | :----------------------------------- | :----------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
 | **중앙 진단기** | **Raspberry Pi 5** | Quad A76 @ 2.4GHz | **Classic CAN (`can0`/`can1`, 500k) + 보조 USB UART + 선택 SWD** | SocketCAN 상태·프레임·(지원 시 UDS) 기록 수집, Build ID별 심벌 분석, SLM 근거 설명. SWD는 선택 개발 경로 |
-| **보드 A: 열관리 제어기** | **NUCLEO-F103RB** | Cortex-M3 @ 72MHz (128KB Flash, 20KB SRAM) | **bxCAN (Classic CAN 500k) + USART2 VCP** | • 온도·열관리 상태 계측 및 냉각 팬 제어 명령 송신<br/>• 통신 오류·부팅 이력·진단 카운터 기록 |
-| **보드 B: 스마트 냉각팬 ECU** | **NUCLEO-F103RB** | Cortex-M3 @ 72MHz (128KB Flash, 20KB SRAM) | **bxCAN (Classic CAN 500k) + USART2 VCP** | • 냉각팬 제어 수신·PWM/구동 및 상태 피드백 송신<br/>• 팬/버스 이상 상태 감지 및 DTC/오류 카운터 기록 |
+| **보드 A: 열관리 제어기** | **NUCLEO-F103RB** | Cortex-M3 @ 72MHz (128KB Flash, 20KB SRAM) | **bxCAN (Classic CAN 500k) + I2C1 (`BMP280`/`MPU6050`) + USART2 VCP** | • `BMP280` 주변 온도·`MPU6050` 팬 진동 RMS 계측 및 목표 듀티(`A_FAN_CMD`)·상태(`A_THERMAL_STATUS`) 송신<br/>• 제어 모드(`a_state`)·냉각팬 감시(`fault_flags`) 분리 판정 및 Fail-Safe(팬 100%) 수행 |
+| **보드 B: 스마트 냉각팬 ECU** | **NUCLEO-F103RB** | Cortex-M3 @ 72MHz (128KB Flash, 20KB SRAM) | **bxCAN (Classic CAN 500k) + USART2 VCP** | • 냉각팬 목표 듀티 수신·PWM/구동 및 홀 센서 RPM·상태(`B_FAN_STATUS`) 피드백 송신<br/>• 팬/버스 이상 상태(`NO_ROTATION`, `RPM_DEVIATION`, `CMD_TIMEOUT`) 감지 및 DTC 기록 |
 
 > **참고**: `RPI5_Agent_Docker`의 기존 소프트웨어 fixture 테스트(`fixture-bench-v1`, `cell2`\~`cell4`)는 가상 BMS/BCM/클러스터 모델(`0x200`/`0x300`/`0x400`)로 유지되며, 실물 벤치는 위 보드 A/B (`NUCLEO-F103RB`) 기준으로 확장합니다.
 
@@ -86,11 +86,13 @@ flowchart TB
 
 STM32F103RB는 1개의 `bxCAN` 컨트롤러를 지원하며(USB 주변장치와 핀 공유 가능), 실제 Nucleo 커넥터에 연결할 때는 보드 점퍼·솔더브리지·펌웨어 리맵 설정(`AFIO_MAPR`)을 확인한다. [STM32F103RB 데이터시트 및 RM0008](https://www.st.com/resource/en/reference_manual/rm0008-stm32f101xx-stm32f102xx-stm32f103xx-stm32f105xx-and-stm32f107xx-advanced-armbased-32bit-mcus-stmicroelectronics.pdf), [NUCLEO-F103RB 사용자 매뉴얼 UM1724](https://www.st.com/resource/en/user_manual/um1724-stm32-nucleo64-boards-mb1136-stmicroelectronics.pdf)
 
-- **bxCAN (`CAN1`) — 기본 핀 또는 리맵 핀 중 펌웨어 설정에 일치하는 경로 사용**:
-  - 기본 매핑: `PA12` (`CAN_TX`), `PA11` (`CAN_RX`) ➡️ 트랜시버 `TXD` / `RXD` (USB 장치 핀과 공유되므로 동시 사용 불가)
-  - 대체 리맵(`CAN_REMAP2`): `PB9` (`CAN_TX`), `PB8` (`CAN_RX`) ➡️ 트랜시버 `TXD` / `RXD`
-- **보조 디버그 UART (`USART2` ST-LINK VCP)**:
-  - `PA2` (`USART2_TX`), `PA3` (`USART2_RX`) → 온보드 ST-LINK/V2-1 VCP → RPi `/dev/serial/by-id/usb-STMicroelectronics_STM32_STLink_*-if02` (`/dev/ttyACM*`, `115200 8N1`)
+- **bxCAN (`CAN1`) — 기본 핀 (`aide-ecu/board_a/board_a.ioc` 확인)**:
+  - 기본 매핑: `PA12` (`CAN_TX`), `PA11` (`CAN_RX`) ➡️ 트랜시버 `TXD` / `RXD` (USB 장치 핀과 공유되므로 동시 사용 불가; `Prescaler=4, BS1=15TQ, BS2=2TQ`, `500 kbps`)
+  - 대체 리맵(`CAN_REMAP2`): `PB9` (`CAN_TX`), `PB8` (`CAN_RX`) ➡️ 단, 보드 A에서는 `PB8`/`PB9`를 `I2C1` 리맵으로 사용하므로 기본 핀(`PA11`/`PA12`)을 사용
+- **보드 A 센서 (`I2C1` 리맵, `PJT-19` 실측 확인)**:
+  - `PB8` (`I2C1_SCL`), `PB9` (`I2C1_SDA`): `BMP280` 주변 온도 센서(주소 `0x76`, `chip id 0x58`) + `MPU6050` 호환 가속도 센서(주소 `0x68`, `WHO_AM_I 0x72`, 팬 진동 RMS 계측). SDA 분리·재연결 시 F103 I2C 잠김 복구(실측 `3.1 s`) 적용
+- **보조 디버그 UART (`USART2` ST-LINK VCP) & 상태 LED**:
+  - `PA2` (`USART2_TX`), `PA3` (`USART2_RX`) → 온보드 ST-LINK/V2-1 VCP → RPi `/dev/serial/by-id/usb-STMicroelectronics_STM32_STLink_*-if02` (`/dev/ttyACM*`, `115200 8N1`), `PA5` (`LD2`) 동작 상태 표시
 
 ---
 
@@ -117,10 +119,10 @@ STM32F103RB는 1개의 `bxCAN` 컨트롤러를 지원하며(USB 주변장치와 
 | :------ | :-------- | :------------------------ | :----------- | :---------------------------------------------------------------------------------------------- |
 | `0x100` | STM32F103 (`hw_test`) | `HW_TEST_TX` (카운터 `A5 5A 00 XX`) | Classic / 4B | **실측 완료**: RPi `can0`에서 10초간 `99`프레임(약 `100.0 ms` 주기, `bus-errors 0`) 수신 확인 |
 | `0x123` | RPi 5 (`cansend`) | 양방향 RX 확인 시험 프레임 | Classic / 4B | **실측 완료**: `cansend can0 123#11223344` 송신 시 STM32 UART `rx=0 -> rx=1 last=0x123 dlc=4` 확인 |
-| `TBD` | 보드 A (열관리 제어기) | 온도/열관리 텔레메트리 및 팬 제어 명령 | Classic / 8B | **`PJT-16`, `PJT-20` 합의 대기**: 초안(`A_FAN_CMD=0x080`, `A_THERMAL_STATUS=0x180`, 100 ms, 목표 듀티) 제시됨, 최종 ID·방식 확정 대기 |
-| `TBD` | 보드 B (스마트 냉각팬 ECU) | 팬 PWM/회전 상태 피드백·고장 이벤트 | Classic / 8B | **`PJT-15`, `PJT-16` 합의 대기**: `DIAG_REQ`/`B_DIAG_RESP` 8B 배치 반영, ID 계산식(`(우선순위×256)+(장치×64)+기능`) 기준 최종 ID·임계치 확정 대기 |
-| `0x7E0`/`0x7E8` | RPi 5 ↔ 각 ECU | `UDS_PHYSICAL_REQUEST/RESPONSE` 후보 | Classic / 8B | **선택 확장 제안**: ECU별 물리 진단 요청/응답 주소 후보 (UDS 구현 여부·실제 ID 미정) |
-| `0x7DF` | RPi 5 → 브로드캐스트 | `DIAG_FUNCTIONAL_REQUEST` 후보 | Classic / 8B | **선택 확장 제안**: 기능 요청 주소 후보 |
+| `0x080` | 보드 A (열관리 제어기) | `A_FAN_CMD` (목표 듀티 `B0` `0~100%`, `alive_cnt` `B7`) | Classic / 8B / 100 ms | **`PJT-20` 정의 완료 · AI 수동 디코더 구현 (`aide-ecu-v1`)**: 수신 타임아웃 `300 ms` |
+| `0x180` | 보드 A (열관리 제어기) | `A_THERMAL_STATUS` (`temp_ambient` `0.1°C`/무효 `0x7FFF`, `duty_target`, `vib_rms`/무효 `0xFFFF`, `a_state`·`thermal_state`, `fault_flags` `0x01~0x07`, `alive_cnt`) | Classic / 8B / 100 ms | **`PJT-20` 정의 완료 · AI 수동 디코더 구현 (`aide-ecu-v1`)**: stale 기준 `500 ms` |
+| `0x1C0` | 보드 B (스마트 냉각팬 ECU) | `B_FAN_STATUS` (`fan_rpm`, `duty_actual`, `fan_state` `0~4`, `fault_code`, `alive_cnt`) | Classic / 8B / 100 ms | **`PJT-20` 제안 반영 · AI 수동 디코더 구현 (`aide-ecu-v1`)**: 최종 ID·고장 형식(단일/비트) 합의 대기 |
+| `0x380`/`0x300` | RPi 5 ↔ 보드 A | `DIAG_REQ` / `A_DIAG_RESP` 진단 요청·응답 후보 | Classic / 8B / 요청 시 | **협의 대기**: UDS + ISO-TP vs 8B 단일 프레임 통일, 패딩(`0x00`/`0xCC`), DID 번호 배정 미정 |
 
 **진단 계층**: CAN ID는 프로젝트가 정하는 주소이며, `0x7DF` 자체가 UDS 표준을 의미하지 않는다. OBD 기능 요청과 UDS 서비스 의미를 혼용하지 않는다. CAN 위 UDS는 `CAN → ISO-TP → UDS`로 처리하고, DTC는 `ReadDTCInformation (0x19)` 및 snapshot 조회로 수집한다. [Linux ISO-TP 주소·전송 계층](https://kernel.org/doc/html/latest/networking/iso15765-2.html), [udsoncan DTC 조회](https://udsoncan.readthedocs.io/en/latest/udsoncan/client.html)
 
@@ -140,12 +142,12 @@ STM32F103RB는 1개의 `bxCAN` 컨트롤러를 지원하며(USB 주변장치와 
 
 | 항목 | 확정할 내용 |
 | :---------- | :------------------------------------------------------------------------------- |
-| 공통 형식 | 프로토콜 버전, 표준 11비트 ID 계산식(`(우선순위×256)+(장치×64)+기능`, `PJT-16`), Classic CAN `500 kbps` 확정, 리틀 엔디안, signed 표현 |
-| 신호 배치 | 시작 비트·길이·배율·오프셋·단위(`target_rpm_or_duty` vs `A_FAN_CMD` 듀티 통일)·유효 범위·측정 불가 값·예약 비트 |
-| 시간·신뢰도 | 주기(`100 ms` 초안)·타임아웃(`B_FAN_STATUS` stale `500 ms` 등)·무회전 판정 시간·RPM 오차(%)·Sequence·재부팅 구분 |
-| 보조 UART 규약 | `/dev/ttyACM*` (`115200 8N1`) 카운터 포맷·epoch·파싱 계약·오류 코드 정의 |
-| 진단 경로 | 8B 단일 프레임 `DIAG_REQ`/`B_DIAG_RESP`(`0x01~0x03`, `PJT-16`) vs `0x380/0x300` UDS+ISO-TP(`PJT-20`) 통합 방식 확정 |
-| DTC | 전송용 코드·표시 이름·상태 비트·발생/해제 조건·snapshot·영속 보존 정책 |
+| 공통 형식 | 프로토콜 버전, 표준 11비트 ID 계산식(`(우선순위×128 또는 비트시프트)+(장치×64)+기능` — `PJT-16`/`PJT-20` 통일), 보드 B 최종 ID, 보드 B 고장 형식(단일 코드 vs 비트 플래그), Classic CAN `500 kbps` 확정 |
+| 신호 배치 | `A_FAN_CMD(0x080)`·`A_THERMAL_STATUS(0x180)` 확정, `B_FAN_STATUS(0x1C0)` 및 보드 B `target_rpm_or_duty` 단위 정합성 |
+| 시간·신뢰도 | 주기 `100 ms` · `A_FAN_CMD` 타임아웃 `300 ms` · `B_FAN_STATUS` stale `500 ms` 초안 기준 무회전 시간·RPM 오차(%)·디바운스 실측 확정 |
+| 보조 UART 규약 | `/dev/ttyACM*` (`115200 8N1`) 카운터 포맷·epoch·파싱 계약·오류 코드 정의 유지 여부 |
+| 진단 경로 | 8B 단일 프레임 `DIAG_REQ`/`B_DIAG_RESP`(`0x01~0x03`, `PJT-16`) vs `0x380/0x300` UDS+ISO-TP(`PJT-20`) 통합 방식, 패딩(`0x00`/`0xCC`), DID 번호 배정·엔디안 확정 |
+| DTC · F-10 시험 | 전송용 코드·표시 이름·상태 비트·발생/해제 조건·snapshot·영속 보존 정책 및 고장 주입 모드(F-10, `a_state=TEST`) 채택 여부 |
 | 제품 진단 기록 | 버전·Build ID·진단 지원 기능·boot ID·리셋 이력·크래시 DID, 크기·유효성·보존·조회 권한 |
 | 제어·테스트 | 허용 명령·파라미터·ACK·중복/재시도·고장 주입 및 원복 절차 |
 | 검증 자료 | DBC·진단 설정·정답 프레임을 함께 버전 관리하고 C/Python 양쪽에서 교차 검증 |

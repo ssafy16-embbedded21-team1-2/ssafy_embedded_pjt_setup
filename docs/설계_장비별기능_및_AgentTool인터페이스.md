@@ -104,10 +104,11 @@ flowchart LR
 
 ### 2-1. 보드 A: NUCLEO-F103RB (열관리 제어기 ECU)
 
-- **역할 (`PJT-15`, `PJT-16`)**: 온도·열관리 상태 계측 및 냉각 목표/제어 요청을 Classic CAN(`500 kbps`)으로 송출하고 보드 B 상태를 수신·감시한다.
+- **역할 (`PJT-19`, `PJT-20`, `aide-ecu/board_a`)**: `I2C1(PB8/PB9)` `BMP280`(주변 온도 `0x76`)과 `MPU6050` 호환 칩(진동 RMS `0x68`)을 계측하고, Classic CAN(`PA11/PA12`, `500 kbps`)으로 `A_FAN_CMD(0x080)`·`A_THERMAL_STATUS(0x180)`를 100 ms 주기로 송신하며 `B_FAN_STATUS(0x1C0)`를 감시한다.
+- **상태·고장 모델**: 제어 모드(`a_state`: `0=INIT`, `1=NORMAL`, `2=FAILSAFE` 팬 `100%`, `3=TEST`)와 냉각팬 감시(`COMM_LOST`, `RESP_FAULT`)를 분리하고, `fault_flags`(`0x01 TEMP_SENSOR` \~ `0x07 TASK_OVERRUN`) 및 열관리 상태(`정상`/`경고`/`과온`/`불명`)를 보고한다.
 - **고의 고장 / 시험 대상**:
-  - 센서 측정 불가(`invalid`) / 샘플 정체(`STALE`) / 임계 온도 초과 시나리오
-  - 송신 중단 및 CAN 버스 물리 단선/종단 이상에 따른 `ACK Error` / `Error Passive` / `Bus-Off` 관측
+  - `BMP280` SDA 분리 시 무효값(`0x7FFF`)·`a_state=2(FAILSAFE)`·목표 듀티 `100%` 전환 및 I2C 버스 잠김 자동 복구(실측 `3.1 s`)
+  - 진동 센서(`MPU6050`) 통신 이상(`0xFFFF` 무효 처리, 냉각 제어 영향 없음), `B_FAN_STATUS` 타임아웃(`500 ms`)·`alive_cnt` 정지, 과온(`55 °C` 이상, 고장과 구분) 시나리오
 
 ### 2-2. 보드 B: NUCLEO-F103RB (스마트 냉각팬 ECU)
 
@@ -242,7 +243,11 @@ L2는 `NUCLEO-F103RB` 대상 증거 수집을 우선하며 SWD 없이 종료할 
 - **1차 실측 프레임 (2026-11-17)**:
   - `0x100` (DLC `4`, `hw_test CAN normal v1` 100 ms 송신): `candump can0` 10초 99프레임 수신 확인.
   - `0x123` (DLC `4`, RPi `cansend`): STM32 `/dev/ttyACM0`에서 `rx=1 last=0x123 dlc=4` 확인.
-- **보드 A / 보드 B 실물 메시지 (`PJT-15`, `PJT-16`)**: 열관리 제어기(보드 A)와 스마트 냉각팬 ECU(보드 B) 간 온도·제어·팬 상태·오류 프레임의 정식 ID(`0x1~`/`0x2~` 또는 11비트 비트필드 분할)·바이트 배치·주기·임계치는 **임베디드 팀 합의 대기 (`TBD`)**.
+- **보드 A / 보드 B 주기 메시지 (`PJT-19`·`PJT-20` 반영, `RPI5_Agent_Docker` `aide-ecu-v1` 디코더 구현)**:
+  - `0x080` (`A_FAN_CMD`, 100 ms, `duty_target` `0~100%` + `alive_cnt`)
+  - `0x180` (`A_THERMAL_STATUS`, 100 ms, `temp_ambient`/`vib_rms`/`a_state`·`thermal_state`/`fault_flags`/`alive_cnt`)
+  - `0x1C0` (`B_FAN_STATUS`, 100 ms, `fan_rpm`/`duty_actual`/`fan_state`/`fault_code`/`alive_cnt`; 최종 ID 및 `fault_code`/비트 통일은 협의 확인 대상)
+- **능동 진단 메시지 (`TBD`)**: `0x380`/`0x300` (`UDS + ISO-TP`) vs 8B 단일 프레임(`DIAG_REQ`/`B_DIAG_RESP`), DID 번호·엔디안은 팀 합의 대기.
 - **가상 벤치 호환 프레임**: `0x200` (`BMS_STATUS`), `0x300` (`BODY_STATUS`), `0x400` (`CLUSTER_FEEDBACK`)은 `RPI5_Agent_Docker` 가상 fixture 검증용.
 
 회의 진행과 상세 명세·결정·담당자 기록은 [CAN 통신 규약 합의 회의 템플릿](CAN_통신규약_합의_회의_템플릿.md)을 사용합니다.
